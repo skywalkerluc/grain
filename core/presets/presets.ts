@@ -104,108 +104,126 @@ function buildPack(base: PresetDefinition[], pack: PresetPackId): PresetDefiniti
 }
 
 const BASE_PRESETS: PresetDefinition[] = [
-  preset('vintage-sienna', 'Sienna Dust', 'Vintage', {
-    brightness: 4,
-    contrast: -8,
-    saturation: -10,
-    temperature: 16,
-    fade: 22,
+  // Vintage — three clearly distinct film aesthetics
+  preset('vintage-sienna', 'Old Roll', 'Vintage', {
+    brightness: -2,
+    contrast: -10,
+    saturation: -18,
+    temperature: 18,
+    fade: 28,
+    grain: 34,
+    vignette: 20
+  }, { lutId: 'expired-analog', lutIntensity: 0.88 }),
+
+  preset('vintage-linen', 'Linen Fade', 'Vintage', {
+    brightness: 10,
+    contrast: -16,
+    saturation: -12,
+    temperature: -6,
+    fade: 32,
+    grain: 16,
+    vignette: 8
+  }, { lutId: 'polaroid-fade', lutIntensity: 0.76 }),
+
+  preset('vintage-amber', 'Amber 35', 'Vintage', {
+    brightness: 6,
+    contrast: 4,
+    saturation: -8,
+    temperature: 24,
+    fade: 12,
     grain: 20,
     vignette: 12
-  }, { lutId: 'warm-kodak', lutIntensity: 0.74 }),
-  preset('vintage-linen', 'Linen Fade', 'Vintage', {
-    brightness: 8,
-    contrast: -14,
-    saturation: -14,
-    temperature: 8,
-    fade: 30,
-    grain: 24,
-    sharpness: 2
-  }, { lutId: 'faded-portra', lutIntensity: 0.82 }),
-  preset('vintage-amber', 'Amber 35', 'Vintage', {
-    brightness: 2,
-    contrast: 2,
-    saturation: -12,
-    temperature: 20,
-    fade: 16,
-    grain: 26,
-    vignette: 16
-  }, { lutId: 'warm-kodak', lutIntensity: 0.86 }),
+  }, { lutId: 'warm-kodak', lutIntensity: 0.88 }),
+
+  // Clean — neutral to cool, high clarity
   preset('clean-crisp', 'Crisp Day', 'Clean', {
     brightness: 14,
-    contrast: 8,
+    contrast: 10,
     saturation: 4,
-    temperature: 2,
+    temperature: 0,
     grain: 4,
-    sharpness: 10
+    sharpness: 14
   }),
+
   preset('clean-natural', 'Natural Pop', 'Clean', {
     brightness: 8,
-    contrast: 6,
-    saturation: 8,
+    contrast: 8,
+    saturation: 14,
     temperature: -4,
-    fade: 4,
-    grain: 8
-  }, { lutId: 'faded-portra', lutIntensity: 0.28 }),
+    grain: 6,
+    sharpness: 8
+  }),
+
   preset('clean-cool', 'Cool Glass', 'Clean', {
-    brightness: 8,
+    brightness: 10,
     contrast: 12,
     saturation: 4,
-    temperature: -16,
+    temperature: -22,
     fade: 2,
-    grain: 6
-  }, { lutId: 'cool-bleach', lutIntensity: 0.48 }),
+    grain: 4,
+    sharpness: 12,
+    vignette: 4
+  }, { lutId: 'cinematic-teal', lutIntensity: 0.44 }),
+
+  // Dark — three distinct shadow aesthetics
   preset('dark-ink', 'Ink Night', 'Dark', {
-    brightness: -18,
-    contrast: 22,
-    saturation: -12,
+    brightness: -20,
+    contrast: 26,
+    saturation: -28,
     temperature: -8,
-    vignette: 24,
-    grain: 22
-  }, { lutId: 'noir-silver', lutIntensity: 0.44 }),
+    vignette: 26,
+    grain: 20
+  }, { lutId: 'noir-silver', lutIntensity: 0.52 }),
+
   preset('dark-graphite', 'Graphite', 'Dark', {
-    brightness: -16,
+    brightness: -8,
     contrast: 20,
-    saturation: -20,
-    fade: 6,
-    grain: 18,
-    vignette: 20
-  }, { lutId: 'noir-silver', lutIntensity: 0.66 }),
+    saturation: -22,
+    fade: 4,
+    grain: 12,
+    vignette: 16,
+    sharpness: 4
+  }, { lutId: 'cool-bleach', lutIntensity: 0.68 }),
+
   preset('dark-neon', 'Neon Alley', 'Dark', {
-    brightness: -12,
-    contrast: 20,
-    saturation: 6,
-    temperature: -16,
-    grain: 18,
-    vignette: 14
-  }, { lutId: 'cinematic-teal', lutIntensity: 0.82 }),
+    brightness: -14,
+    contrast: 24,
+    saturation: 8,
+    temperature: -20,
+    grain: 16,
+    vignette: 18
+  }, { lutId: 'lomo-chrome', lutIntensity: 0.80 }),
+
+  // Film — grain-forward analog character
   preset('film-iso160', 'ISO 160', 'Film', {
     brightness: 4,
     contrast: 8,
     saturation: -4,
     temperature: 8,
     fade: 8,
-    grain: 28,
-    sharpness: 6
-  }, { lutId: 'faded-portra', lutIntensity: 0.76 }),
+    grain: 24,
+    sharpness: 8
+  }, { lutId: 'warm-kodak', lutIntensity: 0.64 }),
+
   preset('film-iso400', 'ISO 400', 'Film', {
-    brightness: -2,
-    contrast: 12,
-    saturation: -8,
+    brightness: -4,
+    contrast: 14,
+    saturation: -10,
     temperature: 6,
-    fade: 8,
-    grain: 38,
+    fade: 6,
+    grain: 42,
     vignette: 10
-  }, { lutId: 'warm-kodak', lutIntensity: 0.62 }),
+  }, { lutId: 'expired-analog', lutIntensity: 0.46 }),
+
   preset('film-cross', 'Cross Dev', 'Film', {
     brightness: -4,
-    contrast: 18,
-    saturation: 12,
+    contrast: 22,
+    saturation: 18,
     temperature: -2,
-    fade: 4,
-    grain: 32,
+    fade: 2,
+    grain: 28,
     vignette: 12
-  }, { lutId: 'cross-process', lutIntensity: 0.8 })
+  }, { lutId: 'cross-process', lutIntensity: 0.82 })
 ];
 
 export const PRESET_PACKS: Record<PresetPackId, PresetDefinition[]> = {
@@ -215,10 +233,26 @@ export const PRESET_PACKS: Record<PresetPackId, PresetDefinition[]> = {
   bold: buildPack(BASE_PRESETS, 'bold')
 };
 
-// v5.2 selector: switch this value to quickly test different style directions.
-export const ACTIVE_PRESET_PACK: PresetPackId = 'balanced';
+export const DEFAULT_PRESET_PACK: PresetPackId = 'balanced';
 
-export const PRESETS: PresetDefinition[] = PRESET_PACKS[ACTIVE_PRESET_PACK];
+export function getPresetsByPack(pack: PresetPackId): PresetDefinition[] {
+  return PRESET_PACKS[pack];
+}
+
+export function inferPresetPackFromId(presetId: string): PresetPackId {
+  if (presetId.endsWith('-clean')) {
+    return 'clean';
+  }
+  if (presetId.endsWith('-filmic')) {
+    return 'filmic';
+  }
+  if (presetId.endsWith('-bold')) {
+    return 'bold';
+  }
+  return 'balanced';
+}
+
+export const PRESETS: PresetDefinition[] = getPresetsByPack(DEFAULT_PRESET_PACK);
 
 export function getPresetById(id: string): PresetDefinition | undefined {
   return PRESETS.find((item) => item.id === id);

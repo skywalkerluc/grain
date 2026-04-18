@@ -214,6 +214,17 @@ function applyVignette(
   ctx.restore();
 }
 
+function createGrainRng(seed: number): () => number {
+  let s = (seed ^ 0xdeadbeef) >>> 0;
+  return () => {
+    s += 0x6d2b79f5;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function applyGrain(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -227,14 +238,15 @@ function applyGrain(
 
   const amount = grain / 100;
   const profile = getGrainProfile(amount);
+  const rng = createGrainRng((width * height) ^ (Math.floor(amount * 8) * 2654435761));
   const imageData = ctx.getImageData(0, 0, width, height);
   const data = imageData.data;
   const speckCount = Math.floor((width * height * profile.densityFactor) / profile.speckDivisor);
 
   ctx.save();
   for (let i = 0; i < speckCount; i += 1) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
+    const x = rng() * width;
+    const y = rng() * height;
     const pixelIndex = (Math.floor(y) * width + Math.floor(x)) * 4;
     const r = data[pixelIndex] / 255;
     const g = data[pixelIndex + 1] / 255;
@@ -244,17 +256,17 @@ function applyGrain(
     const shadowBoost = profile.shadowBase + (1 - luma) * profile.shadowLift;
     const strength = amount * shadowBoost;
     const alpha = clamp(
-      strength * (profile.alphaMin + Math.random() * profile.alphaRange),
+      strength * (profile.alphaMin + rng() * profile.alphaRange),
       profile.alphaClampMin,
       profile.alphaClampMax
     );
-    const radius = profile.radiusBase + Math.random() * (profile.radiusJitter + amount * profile.radiusScale);
+    const radius = profile.radiusBase + rng() * (profile.radiusJitter + amount * profile.radiusScale);
 
-    if (Math.random() > 0.58) {
-      const warm = Math.random() * 12;
+    if (rng() > 0.58) {
+      const warm = rng() * 12;
       ctx.fillStyle = `rgba(${242 + warm},${236 + warm * 0.5},${228 + warm * 0.35},${alpha * 0.85})`;
     } else {
-      const cool = Math.random() * 18;
+      const cool = rng() * 18;
       ctx.fillStyle = `rgba(${20 + cool * 0.55},${18 + cool * 0.45},${24 + cool},${alpha})`;
     }
 
@@ -265,16 +277,16 @@ function applyGrain(
 
   const clumpCount = Math.max(1, Math.floor(profile.clumpFactor * (0.8 + amount * 1.4)));
   for (let i = 0; i < clumpCount; i += 1) {
-    const x = Math.random() * width;
-    const y = Math.random() * height;
+    const x = rng() * width;
+    const y = rng() * height;
     const radius = Math.max(
       profile.clumpRadiusMin,
-      Math.min(width, height) * (profile.clumpRadiusBase + Math.random() * profile.clumpRadiusJitter)
+      Math.min(width, height) * (profile.clumpRadiusBase + rng() * profile.clumpRadiusJitter)
     );
     const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
-    const alpha = amount * (profile.clumpAlphaMin + Math.random() * profile.clumpAlphaRange);
+    const alpha = amount * (profile.clumpAlphaMin + rng() * profile.clumpAlphaRange);
 
-    if (Math.random() > 0.5) {
+    if (rng() > 0.5) {
       gradient.addColorStop(0, `rgba(255,248,236,${alpha})`);
     } else {
       gradient.addColorStop(0, `rgba(22,20,26,${alpha})`);

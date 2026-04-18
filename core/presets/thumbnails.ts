@@ -27,11 +27,12 @@ async function renderPresetThumbnail(
 export async function renderAllPresetThumbnails(
   image: CanvasImageSource,
   imageSize: { width: number; height: number },
-  size = 96
+  size = 96,
+  presets: PresetDefinition[] = PRESETS
 ): Promise<PresetThumbnail[]> {
   const tasks: Promise<PresetThumbnail>[] = [
     renderPresetThumbnail(image, imageSize, null, size),
-    ...PRESETS.map((preset) => renderPresetThumbnail(image, imageSize, preset, size))
+    ...presets.map((preset) => renderPresetThumbnail(image, imageSize, preset, size))
   ];
 
   return Promise.all(tasks);

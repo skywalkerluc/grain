@@ -1,5 +1,6 @@
 import { createPipeline, getLatestAdjustments, getLatestOperation } from '@/core/pipeline';
-import { PRESETS, applyPresetToPipeline } from './presets';
+import { getLutById } from '@/core/luts';
+import { PRESET_PACKS, PRESETS, applyPresetToPipeline } from './presets';
 
 describe('presets', () => {
   it('has at least 12 presets', () => {
@@ -37,5 +38,24 @@ describe('presets', () => {
     expect(getLatestOperation(cleared, 'preset')).toBeUndefined();
     expect(getLatestOperation(cleared, 'adjustments')).toBeUndefined();
     expect(getLatestOperation(cleared, 'lut')).toBeUndefined();
+  });
+
+  it('ensures every preset lutId exists in LUT catalog', () => {
+    const allPresets = Object.values(PRESET_PACKS).flat();
+    for (const preset of allPresets) {
+      if (!preset.lutId) {
+        continue;
+      }
+      expect(getLutById(preset.lutId)).toBeDefined();
+    }
+  });
+
+  it('ensures preset ids are unique inside each pack', () => {
+    for (const [packId, presets] of Object.entries(PRESET_PACKS)) {
+      const ids = presets.map((item) => item.id);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(ids.length).toBeGreaterThan(0);
+      expect(packId.length).toBeGreaterThan(0);
+    }
   });
 });

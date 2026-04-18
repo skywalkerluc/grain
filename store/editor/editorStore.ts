@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { clonePipeline, createPipeline, type PipelineState } from '@/core/pipeline';
+import { DEFAULT_PRESET_PACK, type PresetPackId } from '@/core/presets';
 
 export type EditorMode = 'adjustments' | 'crop' | 'text' | 'overlays' | 'presets';
 export type CropAspectRatio = 'free' | '1:1' | '4:5' | '9:16' | '16:9' | '3:4';
@@ -21,6 +22,7 @@ type EditorState = {
   mode: EditorMode;
   cropAspectRatio: CropAspectRatio;
   presetId: string | null;
+  presetPack: PresetPackId;
   canUndo: boolean;
   canRedo: boolean;
   showOriginalPreview: boolean;
@@ -31,6 +33,7 @@ type EditorState = {
   setMode: (mode: EditorMode) => void;
   setCropAspectRatio: (ratio: CropAspectRatio) => void;
   setPreset: (presetId: string | null) => void;
+  setPresetPack: (presetPack: PresetPackId) => void;
   setShowOriginalPreview: (show: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -54,6 +57,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   mode: 'adjustments',
   cropAspectRatio: 'free',
   presetId: null,
+  presetPack: DEFAULT_PRESET_PACK,
   canUndo: false,
   canRedo: false,
   showOriginalPreview: false,
@@ -71,7 +75,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       future: [],
       canUndo: false,
       canRedo: false,
-      showOriginalPreview: false
+      showOriginalPreview: false,
+      presetPack: DEFAULT_PRESET_PACK
     });
   },
 
@@ -110,6 +115,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setCropAspectRatio: (cropAspectRatio) => set({ cropAspectRatio }),
 
   setPreset: (presetId) => set({ presetId }),
+
+  setPresetPack: (presetPack) => set({ presetPack }),
 
   setShowOriginalPreview: (showOriginalPreview) => set({ showOriginalPreview }),
 

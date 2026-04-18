@@ -3,17 +3,31 @@
 import { useEffect, useMemo, useState } from 'react';
 import useImage from 'use-image';
 import Image from 'next/image';
-import { applyPresetToPipeline, PRESETS, renderAllPresetThumbnails } from '@/core/presets';
+import {
+  applyPresetToPipeline,
+  getPresetsByPack,
+  type PresetPackId,
+  renderAllPresetThumbnails
+} from '@/core/presets';
 import { useEditorStore } from '@/store/editor/editorStore';
 
 type ThumbMap = Record<string, string>;
+const PACK_OPTIONS: { id: PresetPackId; label: string }[] = [
+  { id: 'balanced', label: 'Equilibrado' },
+  { id: 'filmic', label: 'Fílmico' },
+  { id: 'clean', label: 'Limpo' },
+  { id: 'bold', label: 'Intenso' }
+];
 
 export function PresetsPanel() {
   const originalImage = useEditorStore((state) => state.originalImage);
   const pipeline = useEditorStore((state) => state.pipeline);
   const presetId = useEditorStore((state) => state.presetId);
+  const presetPack = useEditorStore((state) => state.presetPack);
   const setPreset = useEditorStore((state) => state.setPreset);
+  const setPresetPack = useEditorStore((state) => state.setPresetPack);
   const setPipeline = useEditorStore((state) => state.setPipeline);
+  const presets = useMemo(() => getPresetsByPack(presetPack), [presetPack]);
 
   const [image] = useImage(originalImage?.objectUrl ?? '', 'anonymous');
   const [thumbs, setThumbs] = useState<ThumbMap>({});
@@ -25,7 +39,7 @@ export function PresetsPanel() {
 
     let cancelled = false;
 
-    void renderAllPresetThumbnails(image, { width: image.width, height: image.height }).then((results) => {
+    void renderAllPresetThumbnails(image, { width: image.width, height: image.height }, 96, presets).then((results) => {
       if (cancelled) {
         return;
       }
@@ -40,18 +54,39 @@ export function PresetsPanel() {
     return () => {
       cancelled = true;
     };
-  }, [image]);
+  }, [image, presets]);
 
   const categories = useMemo(() => ['Vintage', 'Clean', 'Dark', 'Film'] as const, []);
 
   const apply = (id: string | null) => {
-    const preset = id ? PRESETS.find((item) => item.id === id) ?? null : null;
+    const preset = id ? presets.find((item) => item.id === id) ?? null : null;
     setPreset(preset?.id ?? null);
     setPipeline(applyPresetToPipeline(pipeline, preset));
   };
 
   return (
     <div className="space-y-4">
+      <section>
+        <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Estilo</p>
+        <div className="grid grid-cols-2 gap-2">
+          {PACK_OPTIONS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                setPresetPack(item.id);
+                setPreset(null);
+              }}
+              className={`min-h-11 rounded-lg px-3 text-sm ${
+                presetPack === item.id ? 'bg-accent text-black' : 'bg-white/10 text-white/80'
+              }`}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
       <section>
         <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Sem preset</p>
         <button
@@ -73,7 +108,7 @@ export function PresetsPanel() {
         <section key={category}>
           <p className="mb-2 text-xs uppercase tracking-wide text-white/60">{category}</p>
           <div className="grid grid-cols-3 gap-2">
-            {PRESETS.filter((item) => item.category === category).map((item) => (
+            {presets.filter((item) => item.category === category).map((item) => (
               <button
                 key={item.id}
                 type="button"

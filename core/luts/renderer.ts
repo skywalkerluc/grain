@@ -52,140 +52,123 @@ function applyLutFallbackCanvas(
   return canvas;
 }
 
+const VERTEX_SOURCE = `
+  attribute vec2 a_position;
+  attribute vec2 a_uv;
+  varying vec2 v_uv;
+
+  void main() {
+    v_uv = a_uv;
+    gl_Position = vec4(a_position, 0.0, 1.0);
+  }
+`;
+
+const FRAGMENT_SOURCE = `
+  precision mediump float;
+  varying vec2 v_uv;
+  uniform sampler2D u_texture;
+  uniform mat3 u_matrix;
+  uniform vec3 u_offset;
+  uniform float u_intensity;
+
+  void main() {
+    vec4 src = texture2D(u_texture, v_uv);
+    vec3 graded = clamp((u_matrix * src.rgb) + u_offset, 0.0, 1.0);
+    vec3 outColor = mix(src.rgb, graded, u_intensity);
+    gl_FragColor = vec4(outColor, src.a);
+  }
+`;
+
+const QUAD_VERTICES = new Float32Array([
+  -1, -1, 0, 1,
+   1, -1, 1, 1,
+  -1,  1, 0, 0,
+  -1,  1, 0, 0,
+   1, -1, 1, 1,
+   1,  1, 1, 0
+]);
+
+type GlCache = {
+  canvas: HTMLCanvasElement;
+  gl: WebGLRenderingContext;
+  matrixLoc: WebGLUniformLocation;
+  offsetLoc: WebGLUniformLocation;
+  intensityLoc: WebGLUniformLocation;
+  texture: WebGLTexture;
+};
+
+let glCache: GlCache | null = null;
+
 function createShader(gl: WebGLRenderingContext, type: number, source: string): WebGLShader {
   const shader = gl.createShader(type);
   if (!shader) {
     throw new Error('Unable to create shader');
   }
-
   gl.shaderSource(shader, source);
   gl.compileShader(shader);
-
   if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
     const log = gl.getShaderInfoLog(shader) ?? 'Unknown shader error';
     gl.deleteShader(shader);
     throw new Error(log);
   }
-
   return shader;
 }
 
 function createProgram(gl: WebGLRenderingContext, vertex: string, fragment: string): WebGLProgram {
   const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertex);
   const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragment);
-
   const program = gl.createProgram();
   if (!program) {
     throw new Error('Unable to create WebGL program');
   }
-
   gl.attachShader(program, vertexShader);
   gl.attachShader(program, fragmentShader);
   gl.linkProgram(program);
-
   gl.deleteShader(vertexShader);
   gl.deleteShader(fragmentShader);
-
   if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
     const log = gl.getProgramInfoLog(program) ?? 'Unknown link error';
     gl.deleteProgram(program);
     throw new Error(log);
   }
-
   return program;
 }
 
-function applyLutWebGL(
-  source: CanvasImageSource,
-  size: { width: number; height: number },
-  lut: LutDefinition,
-  intensity: number,
-  target?: HTMLCanvasElement
-): HTMLCanvasElement | null {
-  const canvas = target ?? createCanvas(size.width, size.height);
-  canvas.width = size.width;
-  canvas.height = size.height;
-
+function buildGlCache(): GlCache | null {
+  const canvas = createCanvas(1, 1);
   const gl = canvas.getContext('webgl', { preserveDrawingBuffer: true });
   if (!gl) {
     return null;
   }
 
-  const vertexSource = `
-    attribute vec2 a_position;
-    attribute vec2 a_uv;
-    varying vec2 v_uv;
-
-    void main() {
-      v_uv = a_uv;
-      gl_Position = vec4(a_position, 0.0, 1.0);
-    }
-  `;
-
-  const fragmentSource = `
-    precision mediump float;
-    varying vec2 v_uv;
-    uniform sampler2D u_texture;
-    uniform mat3 u_matrix;
-    uniform vec3 u_offset;
-    uniform float u_intensity;
-
-    void main() {
-      vec4 src = texture2D(u_texture, v_uv);
-      vec3 graded = clamp((u_matrix * src.rgb) + u_offset, 0.0, 1.0);
-      vec3 outColor = mix(src.rgb, graded, u_intensity);
-      gl_FragColor = vec4(outColor, src.a);
-    }
-  `;
-
   let program: WebGLProgram;
   try {
-    program = createProgram(gl, vertexSource, fragmentSource);
+    program = createProgram(gl, VERTEX_SOURCE, FRAGMENT_SOURCE);
   } catch {
     return null;
   }
 
-  gl.viewport(0, 0, size.width, size.height);
   gl.useProgram(program);
-
-  const vertices = new Float32Array([
-    -1, -1, 0, 1,
-    1, -1, 1, 1,
-    -1, 1, 0, 0,
-    -1, 1, 0, 0,
-    1, -1, 1, 1,
-    1, 1, 1, 0
-  ]);
 
   const buffer = gl.createBuffer();
   if (!buffer) {
     return null;
   }
-
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, QUAD_VERTICES, gl.STATIC_DRAW);
 
   const stride = 4 * Float32Array.BYTES_PER_ELEMENT;
-  const positionLocation = gl.getAttribLocation(program, 'a_position');
-  const uvLocation = gl.getAttribLocation(program, 'a_uv');
-
-  gl.enableVertexAttribArray(positionLocation);
-  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, stride, 0);
-  gl.enableVertexAttribArray(uvLocation);
-  gl.vertexAttribPointer(
-    uvLocation,
-    2,
-    gl.FLOAT,
-    false,
-    stride,
-    2 * Float32Array.BYTES_PER_ELEMENT
-  );
+  const positionLoc = gl.getAttribLocation(program, 'a_position');
+  const uvLoc = gl.getAttribLocation(program, 'a_uv');
+  gl.enableVertexAttribArray(positionLoc);
+  gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, stride, 0);
+  gl.enableVertexAttribArray(uvLoc);
+  gl.vertexAttribPointer(uvLoc, 2, gl.FLOAT, false, stride, 2 * Float32Array.BYTES_PER_ELEMENT);
 
   const texture = gl.createTexture();
   if (!texture) {
     return null;
   }
-
   gl.activeTexture(gl.TEXTURE0);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -193,6 +176,46 @@ function applyLutWebGL(
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
+
+  gl.uniform1i(gl.getUniformLocation(program, 'u_texture'), 0);
+
+  const matrixLoc = gl.getUniformLocation(program, 'u_matrix');
+  const offsetLoc = gl.getUniformLocation(program, 'u_offset');
+  const intensityLoc = gl.getUniformLocation(program, 'u_intensity');
+
+  if (!matrixLoc || !offsetLoc || !intensityLoc) {
+    return null;
+  }
+
+  return { canvas, gl, matrixLoc, offsetLoc, intensityLoc, texture };
+}
+
+function getGlCache(): GlCache | null {
+  if (glCache !== null && !glCache.gl.isContextLost()) {
+    return glCache;
+  }
+  glCache = buildGlCache();
+  return glCache;
+}
+
+function applyLutWebGL(
+  source: CanvasImageSource,
+  size: { width: number; height: number },
+  lut: LutDefinition,
+  intensity: number
+): HTMLCanvasElement | null {
+  const cache = getGlCache();
+  if (!cache) {
+    return null;
+  }
+
+  const { canvas, gl, matrixLoc, offsetLoc, intensityLoc, texture } = cache;
+
+  canvas.width = size.width;
+  canvas.height = size.height;
+  gl.viewport(0, 0, size.width, size.height);
+
+  gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(
     gl.TEXTURE_2D,
     0,
@@ -202,15 +225,10 @@ function applyLutWebGL(
     source as unknown as TexImageSource
   );
 
-  const textureLocation = gl.getUniformLocation(program, 'u_texture');
-  const matrixLocation = gl.getUniformLocation(program, 'u_matrix');
-  const offsetLocation = gl.getUniformLocation(program, 'u_offset');
-  const intensityLocation = gl.getUniformLocation(program, 'u_intensity');
+  gl.uniformMatrix3fv(matrixLoc, false, new Float32Array(lut.matrix));
+  gl.uniform3fv(offsetLoc, new Float32Array(lut.offset));
+  gl.uniform1f(intensityLoc, clamp(intensity, 0, 1));
 
-  gl.uniform1i(textureLocation, 0);
-  gl.uniformMatrix3fv(matrixLocation, false, new Float32Array(lut.matrix));
-  gl.uniform3fv(offsetLocation, new Float32Array(lut.offset));
-  gl.uniform1f(intensityLocation, clamp(intensity, 0, 1));
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
   return canvas;
@@ -237,7 +255,7 @@ export async function applyLutToCanvas(
     return passthrough;
   }
 
-  const webgl = applyLutWebGL(source, size, lut, intensity, target);
+  const webgl = applyLutWebGL(source, size, lut, intensity);
   if (webgl) {
     return webgl;
   }

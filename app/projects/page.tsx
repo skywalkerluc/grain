@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { getLatestOperation } from '@/core/pipeline';
+import { inferPresetPackFromId } from '@/core/presets';
 import { useEditorStore } from '@/store/editor/editorStore';
 import {
   deleteProject,
@@ -21,6 +22,7 @@ export default function ProjectsPage() {
   const router = useRouter();
   const setOriginalImage = useEditorStore((state) => state.setOriginalImage);
   const loadProjectSnapshot = useEditorStore((state) => state.loadProjectSnapshot);
+  const setPresetPack = useEditorStore((state) => state.setPresetPack);
 
   const [items, setItems] = useState<ProjectCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +73,7 @@ export default function ProjectsPage() {
   const openProject = (project: SavedProject) => {
     const objectUrl = URL.createObjectURL(project.originalBlob);
     const pipeline = restoreProjectPipeline(project);
+    const restoredPresetId = getLatestOperation(pipeline, 'preset')?.payload.presetId ?? null;
 
     setOriginalImage({
       id: project.id,
@@ -80,7 +83,8 @@ export default function ProjectsPage() {
       size: project.originalBlob.size
     });
 
-    loadProjectSnapshot(pipeline, getLatestOperation(pipeline, 'preset')?.payload.presetId ?? null);
+    setPresetPack(restoredPresetId ? inferPresetPackFromId(restoredPresetId) : 'balanced');
+    loadProjectSnapshot(pipeline, restoredPresetId);
     router.push('/editor');
   };
 
