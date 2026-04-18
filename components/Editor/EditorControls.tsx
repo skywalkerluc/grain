@@ -4,6 +4,7 @@ import { AdjustmentsPanel } from '@/components/Adjustments/AdjustmentsPanel';
 import { CropPanel } from '@/components/Crop/CropPanel';
 import { OverlaysPanel } from '@/components/Overlays/OverlaysPanel';
 import { PresetsPanel } from '@/components/Presets/PresetsPanel';
+import { TextPanel } from '@/components/Text/TextPanel';
 import { useEditorStore, type EditorMode } from '@/store/editor/editorStore';
 
 const MODES: { id: EditorMode; label: string }[] = [
@@ -19,7 +20,10 @@ export function EditorControls() {
   const setMode = useEditorStore((state) => state.setMode);
 
   return (
-    <aside className="min-h-44 rounded-t-3xl border-t border-white/10 bg-panel px-4 pb-5 pt-3">
+    <aside
+      className="sticky bottom-0 max-h-[46dvh] min-h-44 overflow-y-auto rounded-t-3xl border-t border-white/10 bg-panel/98 px-4 pb-[max(20px,var(--safe-bottom))] pt-3 backdrop-blur"
+      style={{ paddingLeft: 'max(16px,var(--safe-left))', paddingRight: 'max(16px,var(--safe-right))' }}
+    >
       <nav className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
         {MODES.map((item) => (
           <button
@@ -39,7 +43,8 @@ export function EditorControls() {
       {mode === 'crop' ? <CropPanel /> : null}
       {mode === 'presets' ? <PresetsPanel /> : null}
       {mode === 'overlays' ? <OverlaysPanel /> : null}
-      {mode !== 'adjustments' && mode !== 'crop' && mode !== 'presets' && mode !== 'overlays' ? (
+      {mode === 'text' ? <TextPanel /> : null}
+      {mode !== 'adjustments' && mode !== 'crop' && mode !== 'presets' && mode !== 'overlays' && mode !== 'text' ? (
         <p className="pt-2 text-sm text-white/60">Módulo &quot;{mode}&quot; entra na próxima fase.</p>
       ) : null}
     </aside>

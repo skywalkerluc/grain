@@ -1,0 +1,131 @@
+'use client';
+
+import { clearTextOverlay, getLatestOperation, setTextOverlay } from '@/core/pipeline';
+import { useEditorStore } from '@/store/editor/editorStore';
+
+const FONT_OPTIONS = ['Avenir Next', 'Georgia', 'Courier New'];
+const ALIGN_OPTIONS: CanvasTextAlign[] = ['left', 'center', 'right'];
+
+export function TextPanel() {
+  const pipeline = useEditorStore((state) => state.pipeline);
+  const setPipeline = useEditorStore((state) => state.setPipeline);
+
+  const textOperation = getLatestOperation(pipeline, 'text')?.payload;
+
+  const text = textOperation?.text ?? 'grain';
+  const fontFamily = textOperation?.fontFamily ?? FONT_OPTIONS[0];
+  const fontSize = textOperation?.fontSize ?? 36;
+  const color = textOperation?.color ?? '#ffffff';
+  const align = textOperation?.align ?? 'center';
+  const x = textOperation?.x ?? 195;
+  const y = textOperation?.y ?? 260;
+
+  const update = (
+    next: Partial<{
+      text: string;
+      x: number;
+      y: number;
+      color: string;
+      fontFamily: string;
+      fontSize: number;
+      align: CanvasTextAlign;
+    }>
+  ) => {
+    setPipeline(
+      setTextOverlay(pipeline, {
+        text: next?.text ?? text,
+        fontFamily: next?.fontFamily ?? fontFamily,
+        fontSize: next?.fontSize ?? fontSize,
+        color: next?.color ?? color,
+        align: next?.align ?? align,
+        x: next?.x ?? x,
+        y: next?.y ?? y
+      })
+    );
+  };
+
+  return (
+    <div className="space-y-4 pb-24">
+      <section>
+        <label className="mb-1 block text-xs uppercase tracking-wide text-white/60">Texto</label>
+        <input
+          type="text"
+          value={text}
+          maxLength={64}
+          onChange={(event) => update({ text: event.target.value })}
+          className="min-h-11 w-full rounded-lg border border-white/20 bg-black/20 px-3 text-sm"
+          placeholder="Digite seu texto"
+        />
+      </section>
+
+      <section className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="mb-1 block text-xs uppercase tracking-wide text-white/60">Fonte</span>
+          <select
+            value={fontFamily}
+            onChange={(event) => update({ fontFamily: event.target.value })}
+            className="min-h-11 w-full rounded-lg border border-white/20 bg-black/20 px-2 text-sm"
+          >
+            {FONT_OPTIONS.map((font) => (
+              <option key={font} value={font}>
+                {font}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="block">
+          <span className="mb-1 block text-xs uppercase tracking-wide text-white/60">Cor</span>
+          <input
+            type="color"
+            value={color}
+            onChange={(event) => update({ color: event.target.value })}
+            className="h-11 w-full rounded-lg border border-white/20 bg-black/20 p-1"
+          />
+        </label>
+      </section>
+
+      <section>
+        <div className="mb-1 flex items-center justify-between text-xs uppercase tracking-wide text-white/60">
+          <span>Tamanho</span>
+          <span className="normal-case">{fontSize}px</span>
+        </div>
+        <input
+          type="range"
+          min={16}
+          max={96}
+          step={1}
+          value={fontSize}
+          onChange={(event) => update({ fontSize: Number(event.target.value) })}
+          className="h-11 w-full accent-accent"
+        />
+      </section>
+
+      <section>
+        <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Alinhamento</p>
+        <div className="grid grid-cols-3 gap-2">
+          {ALIGN_OPTIONS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              onClick={() => update({ align: option })}
+              className={`min-h-11 rounded-lg text-sm capitalize ${
+                align === option ? 'bg-accent text-black' : 'bg-white/10 text-white/80'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <button
+        type="button"
+        onClick={() => setPipeline(clearTextOverlay(pipeline))}
+        className="min-h-11 rounded-lg bg-white/10 px-3 text-sm"
+      >
+        Remover texto
+      </button>
+    </div>
+  );
+}

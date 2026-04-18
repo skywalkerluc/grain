@@ -22,9 +22,9 @@ export default function EditorPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col bg-canvas">
+    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col bg-canvas">
       <EditorToolbar />
-      <div className="flex-1 p-3">
+      <div className="flex-1 p-3 pb-2">
         <EditorCanvas imageUrl={originalImage.objectUrl} />
       </div>
       <EditorControls />

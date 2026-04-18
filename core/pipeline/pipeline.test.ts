@@ -9,6 +9,7 @@ import {
   setCrop,
   setLut,
   setOverlay,
+  setTextOverlay,
   toggleFlip,
   upsertOperation
 } from './pipeline';
@@ -141,5 +142,30 @@ describe('pipeline core', () => {
       opacity: 0.2,
       blendMode: 'multiply'
     });
+  });
+
+  it('stores text as singleton operation', () => {
+    const base = createPipeline();
+    const first = setTextOverlay(base, {
+      text: 'Hello',
+      x: 120,
+      y: 220,
+      color: '#ffffff',
+      fontFamily: 'Georgia',
+      fontSize: 32,
+      align: 'center'
+    });
+    const second = setTextOverlay(first, {
+      text: 'World',
+      x: 150,
+      y: 240,
+      color: '#ffcc00',
+      fontFamily: 'Avenir Next',
+      fontSize: 40,
+      align: 'left'
+    });
+
+    expect(second.operations.filter((operation) => operation.type === 'text')).toHaveLength(1);
+    expect(getLatestOperation(second, 'text')?.payload.text).toBe('World');
   });
 });

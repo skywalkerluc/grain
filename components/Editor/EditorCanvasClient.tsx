@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { Circle, Layer, Rect, Stage, Image as KonvaImage } from 'react-konva';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type Konva from 'konva';
+import { Circle, Layer, Rect, Stage, Text as KonvaText, Transformer, Image as KonvaImage } from 'react-konva';
 import useImage from 'use-image';
-import { applyPipelineToCanvas, setCrop } from '@/core/pipeline';
+import { applyPipelineToCanvas, getLatestOperation, setCrop, setTextOverlay } from '@/core/pipeline';
 import { useEditorStore, type CropAspectRatio } from '@/store/editor/editorStore';
 
 type EditorCanvasProps = {
@@ -85,6 +86,9 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
   const [previewImage] = useImage(previewUrl ?? imageUrl, 'anonymous');
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
 
+  const textNodeRef = useRef<Konva.Text>(null);
+  const transformerRef = useRef<Konva.Transformer>(null);
+
   useEffect(() => {
     if (!image) {
       return;
@@ -97,22 +101,28 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
 
     let cancelled = false;
     const timeout = window.setTimeout(() => {
-      void applyPipelineToCanvas(image, { width: image.width, height: image.height }, pipeline).then(
-        (canvas) => {
-          if (!cancelled) {
-            setPreviewUrl(canvas.toDataURL('image/png'));
-          }
+      void applyPipelineToCanvas(
+        image,
+        { width: image.width, height: image.height },
+        pipeline,
+        undefined,
+        undefined,
+        { skipText: mode === 'text' }
+      ).then((canvas) => {
+        if (!cancelled) {
+          setPreviewUrl(canvas.toDataURL('image/png'));
         }
-      );
+      });
     }, 16);
 
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [image, pipeline]);
+  }, [image, pipeline, mode]);
 
   const activeImage = showOriginalPreview ? image : previewImage;
+  const textOperation = useMemo(() => getLatestOperation(pipeline, 'text')?.payload, [pipeline]);
 
   const fit = useMemo(() => {
     if (!activeImage) {
@@ -138,6 +148,21 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
 
     setCropRect(createCropRectForRatio(fit, cropAspectRatio));
   }, [mode, cropAspectRatio, fit]);
+
+  useEffect(() => {
+    if (
+      mode !== 'text' ||
+      showOriginalPreview ||
+      !textOperation?.text ||
+      !textNodeRef.current ||
+      !transformerRef.current
+    ) {
+      return;
+    }
+
+    transformerRef.current.nodes([textNodeRef.current]);
+    transformerRef.current.getLayer()?.batchDraw();
+  }, [mode, showOriginalPreview, textOperation]);
 
   const moveCropRect = (nextX: number, nextY: number) => {
     setCropRect((current) => {
@@ -214,6 +239,12 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
   };
 
   const handleSize = 9;
+  const scaleX = activeImage ? fit.width / activeImage.width : 1;
+  const scaleY = activeImage ? fit.height / activeImage.height : 1;
+
+  const textX = textOperation && activeImage ? fit.x + textOperation.x * scaleX : 0;
+  const textY = textOperation && activeImage ? fit.y + textOperation.y * scaleY : 0;
+  const textFontSize = textOperation ? Math.max(12, textOperation.fontSize * scaleY) : 12;
 
   return (
     <div className="relative overflow-hidden rounded-2xl bg-black/70">
@@ -227,6 +258,69 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
               width={fit.width}
               height={fit.height}
             />
+          ) : null}
+
+          {mode === 'text' && !showOriginalPreview && textOperation?.text && activeImage ? (
+            <>
+              <KonvaText
+                ref={textNodeRef}
+                text={textOperation.text}
+                x={textX}
+                y={textY}
+                fontSize={textFontSize}
+                fontFamily={textOperation.fontFamily}
+                fill={textOperation.color}
+                align={textOperation.align}
+                draggable
+                shadowColor="rgba(0,0,0,0.35)"
+                shadowBlur={8}
+                onDragEnd={(event) => {
+                  const nextX = Math.round((event.target.x() - fit.x) / scaleX);
+                  const nextY = Math.round((event.target.y() - fit.y) / scaleY);
+                  setPipeline(
+                    setTextOverlay(pipeline, {
+                      ...textOperation,
+                      x: clamp(nextX, 0, activeImage.width),
+                      y: clamp(nextY, 0, activeImage.height)
+                    })
+                  );
+                }}
+                onTransformEnd={() => {
+                  const node = textNodeRef.current;
+                  if (!node) {
+                    return;
+                  }
+
+                  const scale = Math.max(node.scaleX(), node.scaleY());
+                  const resizedFont = Math.round((node.fontSize() * scale) / scaleY);
+                  node.scaleX(1);
+                  node.scaleY(1);
+
+                  const nextX = Math.round((node.x() - fit.x) / scaleX);
+                  const nextY = Math.round((node.y() - fit.y) / scaleY);
+
+                  setPipeline(
+                    setTextOverlay(pipeline, {
+                      ...textOperation,
+                      x: clamp(nextX, 0, activeImage.width),
+                      y: clamp(nextY, 0, activeImage.height),
+                      fontSize: clamp(resizedFont, 12, 180)
+                    })
+                  );
+                }}
+              />
+              <Transformer
+                ref={transformerRef}
+                rotateEnabled={false}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right']}
+                boundBoxFunc={(oldBox, newBox) => {
+                  if (newBox.width < 40 || newBox.height < 20) {
+                    return oldBox;
+                  }
+                  return newBox;
+                }}
+              />
+            </>
           ) : null}
 
           {mode === 'crop' && cropRect ? (

@@ -217,6 +217,30 @@ async function applyOverlay(
   ctx.restore();
 }
 
+function applyTextOverlay(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  pipeline: PipelineState
+): void {
+  const textOperation = getLatestOperation(pipeline, 'text');
+  if (!textOperation || !textOperation.payload.text.trim()) {
+    return;
+  }
+
+  const { text, x, y, color, fontFamily, fontSize, align } = textOperation.payload;
+
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = 'middle';
+  ctx.font = `${Math.max(12, fontSize)}px ${fontFamily}`;
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = 8;
+  ctx.fillText(text, clamp(x, 0, width), clamp(y, 0, height));
+  ctx.restore();
+}
+
 function getPipelineGeometry(
   sourceImage: CanvasImageSource,
   sourceSize: { width: number; height: number },
@@ -232,7 +256,8 @@ export async function applyPipelineToCanvas(
   sourceSize: { width: number; height: number },
   pipeline: PipelineState,
   target?: HTMLCanvasElement,
-  renderSize?: { width: number; height: number }
+  renderSize?: { width: number; height: number },
+  options?: { skipText?: boolean }
 ): Promise<HTMLCanvasElement> {
   const transformed = getPipelineGeometry(sourceImage, sourceSize, pipeline);
   const lutOperation = getLatestOperation(pipeline, 'lut');
@@ -268,6 +293,9 @@ export async function applyPipelineToCanvas(
   applyVignette(ctx, width, height, adjustments);
   applyGrain(ctx, width, height, adjustments);
   await applyOverlay(ctx, width, height, pipeline);
+  if (!options?.skipText) {
+    applyTextOverlay(ctx, width, height, pipeline);
+  }
 
   return canvas;
 }

@@ -48,7 +48,8 @@ export function upsertOperation(
     'rotate',
     'flip',
     'lut',
-    'overlay'
+    'overlay',
+    'text'
   ]
 ): PipelineState {
   const next = clonePipeline(pipeline);
@@ -194,5 +195,31 @@ export function clearOverlay(pipeline: PipelineState): PipelineState {
   return {
     ...pipeline,
     operations: pipeline.operations.filter((operation) => operation.type !== 'overlay')
+  };
+}
+
+export function setTextOverlay(
+  pipeline: PipelineState,
+  payload: {
+    text: string;
+    x: number;
+    y: number;
+    color: string;
+    fontFamily: string;
+    fontSize: number;
+    align: CanvasTextAlign;
+  }
+): PipelineState {
+  return upsertOperation(pipeline, {
+    id: crypto.randomUUID(),
+    type: 'text',
+    payload
+  });
+}
+
+export function clearTextOverlay(pipeline: PipelineState): PipelineState {
+  return {
+    ...pipeline,
+    operations: pipeline.operations.filter((operation) => operation.type !== 'text')
   };
 }

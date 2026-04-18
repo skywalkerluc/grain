@@ -70,6 +70,14 @@ export default function HomePage() {
           </button>
         </div>
 
+        <button
+          type="button"
+          onClick={() => router.push('/projects')}
+          className="mt-3 min-h-11 w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-medium"
+        >
+          Abrir Projetos Salvos
+        </button>
+
         <input
           ref={inputRef}
           type="file"
