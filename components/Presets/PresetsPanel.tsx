@@ -6,9 +6,7 @@ import Image from 'next/image';
 import {
   type AgedPackVariant,
   applyPresetToPipeline,
-  getPresetUsageSnapshot,
   getPresetsByPack,
-  trackPresetUsage,
   type PresetPackId,
   renderAllPresetThumbnails
 } from '@/core/presets';
@@ -52,11 +50,6 @@ export function PresetsPanel() {
 
   const [image] = useImage(originalImage?.objectUrl ?? '', 'anonymous');
   const [thumbs, setThumbs] = useState<ThumbMap>({});
-  const [usageMap, setUsageMap] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    setUsageMap(getPresetUsageSnapshot());
-  }, []);
 
   useEffect(() => {
     if (!image) {
@@ -65,6 +58,7 @@ export function PresetsPanel() {
     }
 
     let cancelled = false;
+    const controller = new AbortController();
 
     setThumbs({});
 
@@ -77,11 +71,13 @@ export function PresetsPanel() {
         if (!cancelled) {
           setThumbs((previous) => ({ ...previous, [id]: dataUrl }));
         }
-      }
+      },
+      { signal: controller.signal }
     );
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [image, presets]);
 
@@ -106,10 +102,6 @@ export function PresetsPanel() {
     const preset = id ? activePresets.find((item) => item.id === id) ?? null : null;
     state.setPreset(preset?.id ?? null);
     state.setPipeline(applyPresetToPipeline(state.pipeline, preset, state.presetStrength));
-    if (preset?.id) {
-      trackPresetUsage(preset.id);
-      setUsageMap((previous) => ({ ...previous, [preset.id]: (previous[preset.id] ?? 0) + 1 }));
-    }
   };
 
   const applyPresetStrength = (nextStrength: number) => {
@@ -124,8 +116,9 @@ export function PresetsPanel() {
   return (
     <div className="space-y-4">
       <section>
-        <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Estilo</p>
+        <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Pacote de filtros</p>
         <p className="mb-2 text-xs text-white/55">{PACK_DESCRIPTIONS[presetPack]}</p>
+        <p className="mb-2 text-xs text-white/50">Escolha o pacote e depois toque em um preset abaixo para aplicar.</p>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {PACK_OPTIONS.map((item) => (
             <button
@@ -241,13 +234,6 @@ export function PresetsPanel() {
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             {presets
               .filter((item) => item.category === category)
-              .sort((a, b) => {
-                const usageDelta = (usageMap[b.id] ?? 0) - (usageMap[a.id] ?? 0);
-                if (usageDelta !== 0) {
-                  return usageDelta;
-                }
-                return a.name.localeCompare(b.name);
-              })
               .map((item) => (
               <button
                 key={item.id}

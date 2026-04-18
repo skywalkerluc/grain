@@ -8,7 +8,6 @@ const ALIGN_OPTIONS: CanvasTextAlign[] = ['left', 'center', 'right'];
 
 export function TextPanel() {
   const pipeline = useEditorStore((state) => state.pipeline);
-  const setPipeline = useEditorStore((state) => state.setPipeline);
 
   const textOperation = getLatestOperation(pipeline, 'text')?.payload;
   const hasText = Boolean(textOperation?.text);
@@ -32,8 +31,9 @@ export function TextPanel() {
       align: CanvasTextAlign;
     }>
   ) => {
-    setPipeline(
-      setTextOverlay(pipeline, {
+    const state = useEditorStore.getState();
+    state.setPipeline(
+      setTextOverlay(state.pipeline, {
         text: next?.text ?? text,
         fontFamily: next?.fontFamily ?? fontFamily,
         fontSize: next?.fontSize ?? fontSize,
@@ -147,7 +147,10 @@ export function TextPanel() {
 
       <button
         type="button"
-        onClick={() => setPipeline(clearTextOverlay(pipeline))}
+        onClick={() => {
+          const state = useEditorStore.getState();
+          state.setPipeline(clearTextOverlay(state.pipeline));
+        }}
         disabled={!hasText}
         className="min-h-11 rounded-lg bg-white/10 px-3 text-sm"
       >

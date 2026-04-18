@@ -21,7 +21,6 @@ const BLEND_MODES: OverlayBlendMode[] = [
 
 export function OverlaysPanel() {
   const pipeline = useEditorStore((state) => state.pipeline);
-  const setPipeline = useEditorStore((state) => state.setPipeline);
 
   const overlay = getLatestOperation(pipeline, 'overlay')?.payload;
   const selectedOverlay = useMemo(
@@ -30,43 +29,52 @@ export function OverlaysPanel() {
   );
 
   const applyOverlayId = (overlayId: string) => {
+    const state = useEditorStore.getState();
+    const latestPipeline = state.pipeline;
+    const latestOverlay = getLatestOperation(latestPipeline, 'overlay')?.payload;
     const selected = getOverlayById(overlayId);
     if (!selected) {
       return;
     }
 
-    setPipeline(
-      setOverlay(pipeline, {
+    state.setPipeline(
+      setOverlay(latestPipeline, {
         overlayId: selected.id,
-        opacity: overlay?.opacity ?? selected.defaultOpacity,
-        blendMode: overlay?.blendMode ?? selected.defaultBlendMode
+        opacity: latestOverlay?.opacity ?? selected.defaultOpacity,
+        blendMode: latestOverlay?.blendMode ?? selected.defaultBlendMode
       })
     );
   };
 
   const updateOpacity = (opacity: number) => {
-    if (!selectedOverlay || !overlay) {
+    const state = useEditorStore.getState();
+    const latestPipeline = state.pipeline;
+    const latestOverlay = getLatestOperation(latestPipeline, 'overlay')?.payload;
+    if (!selectedOverlay || !latestOverlay) {
       return;
     }
 
-    setPipeline(
-      setOverlay(pipeline, {
+    state.setPipeline(
+      setOverlay(latestPipeline, {
         overlayId: selectedOverlay.id,
         opacity,
-        blendMode: overlay.blendMode
+        blendMode: latestOverlay.blendMode
       })
     );
   };
 
   const updateBlendMode = (blendMode: OverlayBlendMode) => {
-    if (!selectedOverlay || !overlay) {
+    const state = useEditorStore.getState();
+    const latestPipeline = state.pipeline;
+    const latestOverlay = getLatestOperation(latestPipeline, 'overlay')?.payload;
+    if (!selectedOverlay || !latestOverlay) {
       return;
     }
 
-    setPipeline(
-      setOverlay(pipeline, {
+    state.setPipeline(
+      setOverlay(latestPipeline, {
         overlayId: selectedOverlay.id,
-        opacity: overlay.opacity,
+        opacity: latestOverlay.opacity,
         blendMode
       })
     );
@@ -79,7 +87,10 @@ export function OverlaysPanel() {
           <p className="text-xs uppercase tracking-wide text-white/60">Biblioteca</p>
           <button
             type="button"
-            onClick={() => setPipeline(clearOverlay(pipeline))}
+            onClick={() => {
+              const state = useEditorStore.getState();
+              state.setPipeline(clearOverlay(state.pipeline));
+            }}
             className="min-h-11 rounded-lg bg-white/10 px-3 text-xs"
           >
             Remover

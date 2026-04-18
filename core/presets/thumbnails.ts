@@ -29,13 +29,20 @@ export async function renderAllPresetThumbnails(
   imageSize: { width: number; height: number },
   size = 96,
   presets: PresetDefinition[] = PRESETS,
-  onProgress?: (id: string, dataUrl: string) => void
+  onProgress?: (id: string, dataUrl: string) => void,
+  options?: { signal?: AbortSignal }
 ): Promise<PresetThumbnail[]> {
   const results: PresetThumbnail[] = [];
 
   const ordered = [null, ...presets];
   for (const preset of ordered) {
+    if (options?.signal?.aborted) {
+      break;
+    }
     const result = await renderPresetThumbnail(image, imageSize, preset, size);
+    if (options?.signal?.aborted) {
+      break;
+    }
     results.push(result);
     onProgress?.(result.id, result.dataUrl);
   }

@@ -335,7 +335,8 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
       height: Math.round(cropRect.height * scaleY)
     };
 
-    setPipeline(setCrop(pipeline, crop));
+    const state = useEditorStore.getState();
+    state.setPipeline(setCrop(state.pipeline, crop));
   };
 
   const handleSize = 9;

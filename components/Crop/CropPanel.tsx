@@ -16,7 +16,6 @@ export function CropPanel() {
   const cropAspectRatio = useEditorStore((state) => state.cropAspectRatio);
   const setCropAspectRatio = useEditorStore((state) => state.setCropAspectRatio);
   const pipeline = useEditorStore((state) => state.pipeline);
-  const setPipeline = useEditorStore((state) => state.setPipeline);
 
   const flip = getLatestOperation(pipeline, 'flip')?.payload;
 
@@ -45,21 +44,30 @@ export function CropPanel() {
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
-            onClick={() => setPipeline(rotateQuarterTurn(pipeline, 'counterclockwise'))}
+            onClick={() => {
+              const state = useEditorStore.getState();
+              state.setPipeline(rotateQuarterTurn(state.pipeline, 'counterclockwise'));
+            }}
             className="min-h-11 rounded-lg bg-white/10 text-sm"
           >
             Rotacionar -90°
           </button>
           <button
             type="button"
-            onClick={() => setPipeline(rotateQuarterTurn(pipeline, 'clockwise'))}
+            onClick={() => {
+              const state = useEditorStore.getState();
+              state.setPipeline(rotateQuarterTurn(state.pipeline, 'clockwise'));
+            }}
             className="min-h-11 rounded-lg bg-white/10 text-sm"
           >
             Rotacionar +90°
           </button>
           <button
             type="button"
-            onClick={() => setPipeline(toggleFlip(pipeline, 'horizontal'))}
+            onClick={() => {
+              const state = useEditorStore.getState();
+              state.setPipeline(toggleFlip(state.pipeline, 'horizontal'));
+            }}
             className={`min-h-11 rounded-lg text-sm ${
               flip?.horizontal ? 'bg-accent text-black' : 'bg-white/10'
             }`}
@@ -68,7 +76,10 @@ export function CropPanel() {
           </button>
           <button
             type="button"
-            onClick={() => setPipeline(toggleFlip(pipeline, 'vertical'))}
+            onClick={() => {
+              const state = useEditorStore.getState();
+              state.setPipeline(toggleFlip(state.pipeline, 'vertical'));
+            }}
             className={`min-h-11 rounded-lg text-sm ${
               flip?.vertical ? 'bg-accent text-black' : 'bg-white/10'
             }`}

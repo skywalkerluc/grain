@@ -39,64 +39,22 @@ const DEFAULT_VALUES: AdjustmentValues = {
   grain: 0
 };
 
-const PREVIEW_DEBOUNCE_MS = 16;
-
 export function AdjustmentsPanel() {
   const pipeline = useEditorStore((state) => state.pipeline);
   const [values, setValues] = useState<AdjustmentValues>(() => getLatestAdjustments(pipeline));
-  const timerRef = useRef<number | null>(null);
-  const dragRef = useRef<{
-    key: AdjustmentKey;
-    basePipeline: ReturnType<typeof useEditorStore.getState>['pipeline'];
-    previewPipeline: ReturnType<typeof useEditorStore.getState>['pipeline'] | null;
-  } | null>(null);
+  const livePipelineRef = useRef(pipeline);
+  const dragBaseRef = useRef<typeof pipeline | null>(null);
 
   useEffect(() => {
     setValues(getLatestAdjustments(pipeline));
+    livePipelineRef.current = pipeline;
   }, [pipeline]);
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current !== null) {
-        window.clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
-
   const entries = useMemo(() => CONTROLS, []);
-
-  const scheduleUpdate = (key: AdjustmentKey, value: number) => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-    }
-
-    timerRef.current = window.setTimeout(() => {
-      const state = useEditorStore.getState();
-      if (!dragRef.current || dragRef.current.key !== key) {
-        dragRef.current = {
-          key,
-          basePipeline: state.pipeline,
-          previewPipeline: null
-        };
-      }
-
-      const next = setAdjustment(dragRef.current.basePipeline, key, value);
-      dragRef.current.previewPipeline = next;
-      state.setPipelinePreview(next);
-    }, PREVIEW_DEBOUNCE_MS);
-  };
-
-  const commitDrag = () => {
-    if (timerRef.current !== null) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-
+  const commitPreview = () => {
     const state = useEditorStore.getState();
-    if (dragRef.current?.previewPipeline) {
-      state.setPipeline(dragRef.current.previewPipeline);
-    }
-    dragRef.current = null;
+    state.setPipeline(livePipelineRef.current);
+    dragBaseRef.current = null;
   };
 
   return (
@@ -140,21 +98,27 @@ export function AdjustmentsPanel() {
               max={item.max}
               step={item.step}
               value={values[item.key]}
+              onPointerDown={() => {
+                dragBaseRef.current = useEditorStore.getState().pipeline;
+              }}
               onChange={(event) => {
                 const nextValue = Number(event.target.value);
                 setValues((previous) => ({ ...previous, [item.key]: nextValue }));
-                scheduleUpdate(item.key, nextValue);
+                const base = dragBaseRef.current ?? livePipelineRef.current;
+                const next = setAdjustment(base, item.key, nextValue);
+                livePipelineRef.current = next;
+                useEditorStore.getState().setPipelinePreview(next);
               }}
-              onPointerDown={() => {
-                const state = useEditorStore.getState();
-                dragRef.current = {
-                  key: item.key,
-                  basePipeline: state.pipeline,
-                  previewPipeline: null
-                };
+              onPointerUp={() => {
+                commitPreview();
               }}
-              onPointerUp={commitDrag}
-              onPointerCancel={commitDrag}
+              onPointerCancel={() => {
+                commitPreview();
+              }}
+              onBlur={() => {
+                // Keyboard interactions and some pointer edge-cases may skip pointerup.
+                commitPreview();
+              }}
               className="h-11 w-full accent-accent"
             />
           </label>
