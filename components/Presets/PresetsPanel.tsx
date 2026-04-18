@@ -43,14 +43,11 @@ const PACK_DESCRIPTIONS: Record<PresetPackId, string> = {
 
 export function PresetsPanel() {
   const originalImage = useEditorStore((state) => state.originalImage);
-  const pipeline = useEditorStore((state) => state.pipeline);
   const presetId = useEditorStore((state) => state.presetId);
   const presetPack = useEditorStore((state) => state.presetPack);
   const presetStrength = useEditorStore((state) => state.presetStrength);
-  const setPreset = useEditorStore((state) => state.setPreset);
   const setPresetPack = useEditorStore((state) => state.setPresetPack);
   const setPresetStrength = useEditorStore((state) => state.setPresetStrength);
-  const setPipeline = useEditorStore((state) => state.setPipeline);
   const presets = useMemo(() => getPresetsByPack(presetPack), [presetPack]);
 
   const [image] = useImage(originalImage?.objectUrl ?? '', 'anonymous');
@@ -104,9 +101,11 @@ export function PresetsPanel() {
   );
 
   const apply = (id: string | null) => {
-    const preset = id ? presets.find((item) => item.id === id) ?? null : null;
-    setPreset(preset?.id ?? null);
-    setPipeline(applyPresetToPipeline(pipeline, preset, presetStrength));
+    const state = useEditorStore.getState();
+    const activePresets = getPresetsByPack(state.presetPack);
+    const preset = id ? activePresets.find((item) => item.id === id) ?? null : null;
+    state.setPreset(preset?.id ?? null);
+    state.setPipeline(applyPresetToPipeline(state.pipeline, preset, state.presetStrength));
     if (preset?.id) {
       trackPresetUsage(preset.id);
       setUsageMap((previous) => ({ ...previous, [preset.id]: (previous[preset.id] ?? 0) + 1 }));

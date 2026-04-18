@@ -370,11 +370,8 @@ export async function applyLutToCanvas(
   }
 
   if (lut.kind === 'matrix') {
-    const webgl = applyLutWebGL(source, size, lut, intensity);
-    if (webgl) {
-      return webgl;
-    }
-
+    // Use 2D fallback as the source of truth to avoid orientation inconsistencies
+    // reported on some environments when WebGL is used for matrix LUTs.
     return applyMatrixLutFallbackCanvas(source, size, lut, intensity, target);
   }
 
