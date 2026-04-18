@@ -102,7 +102,7 @@ export default function ProjectsPage() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-xl p-4">
+    <main className="mx-auto min-h-screen w-full max-w-6xl p-4 lg:px-8">
       <header className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-semibold">Projetos</h1>
@@ -128,7 +128,7 @@ export default function ProjectsPage() {
         </section>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {items.map((item) => (
           <article key={item.record.id} className="rounded-xl border border-white/10 bg-panel p-2">
             <div className="relative mb-2 h-28 w-full overflow-hidden rounded-md bg-black/40">

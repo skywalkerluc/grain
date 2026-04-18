@@ -22,12 +22,18 @@ export default function EditorPage() {
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-xl flex-col bg-canvas">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[1400px] flex-col bg-canvas">
       <EditorToolbar />
-      <div className="flex-1 p-3 pb-2">
-        <EditorCanvas imageUrl={originalImage.objectUrl} />
+      <div className="flex-1 px-3 pb-3 pt-2 lg:px-4 lg:pb-4">
+        <div className="flex h-full flex-col gap-3 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-4">
+          <section className="min-h-0">
+            <EditorCanvas imageUrl={originalImage.objectUrl} />
+          </section>
+          <section className="min-h-0">
+            <EditorControls />
+          </section>
+        </div>
       </div>
-      <EditorControls />
     </main>
   );
 }

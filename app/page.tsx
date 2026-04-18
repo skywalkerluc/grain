@@ -77,10 +77,10 @@ export default function HomePage() {
   };
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center p-6">
-      <section className="rounded-2xl bg-panel p-6 shadow-lg shadow-black/30">
+    <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col justify-center p-6 lg:px-8">
+      <section className="rounded-2xl bg-panel p-6 shadow-lg shadow-black/30 lg:p-8">
         <Image src="/brand/logo.png" alt="grain" width={260} height={74} className="h-10 w-auto" priority />
-        <p className="mt-3 text-sm text-white/70">{helper}</p>
+        <p className="mt-3 max-w-2xl text-sm text-white/70">{helper}</p>
 
         <div
           onDrop={(event) => {
@@ -91,28 +91,34 @@ export default function HomePage() {
             }
           }}
           onDragOver={(event) => event.preventDefault()}
-          className="mt-6 flex min-h-40 items-center justify-center rounded-xl border border-dashed border-white/30 p-4 text-center"
+          onClick={() => inputRef.current?.click()}
+          className="mt-6 flex min-h-48 cursor-pointer items-center justify-center rounded-xl border border-dashed border-white/30 p-6 text-center lg:min-h-56"
         >
           {converting ? (
             <p className="text-sm text-white/70">Convertendo HEIC...</p>
           ) : (
-            <button
-              type="button"
-              className="min-h-11 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-black"
-              onClick={() => inputRef.current?.click()}
-            >
-              Escolher Foto
-            </button>
+            <p className="max-w-sm text-sm text-white/75">
+              Arraste e solte sua imagem aqui ou clique para selecionar um arquivo.
+            </p>
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={() => router.push('/projects')}
-          className="mt-3 min-h-11 w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-medium"
-        >
-          Abrir Projetos Salvos
-        </button>
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="min-h-11 w-full rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-black"
+          >
+            Escolher Foto
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/projects')}
+            className="min-h-11 w-full rounded-lg bg-white/10 px-4 py-3 text-sm font-medium"
+          >
+            Abrir Projetos Salvos
+          </button>
+        </div>
 
         <input
           ref={inputRef}

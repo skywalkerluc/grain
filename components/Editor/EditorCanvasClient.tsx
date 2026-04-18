@@ -100,7 +100,8 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
 
     const recompute = () => {
       const width = Math.max(260, Math.floor(element.clientWidth));
-      const maxHeight = Math.max(320, Math.floor(window.innerHeight * 0.56));
+      const isDesktop = window.innerWidth >= 1024;
+      const maxHeight = Math.max(320, Math.floor(window.innerHeight * (isDesktop ? 0.72 : 0.56)));
       const idealHeight = Math.round(width * (VIEWPORT_HEIGHT / VIEWPORT_WIDTH));
       const height = Math.max(300, Math.min(maxHeight, idealHeight));
       setStageSize({ width, height });

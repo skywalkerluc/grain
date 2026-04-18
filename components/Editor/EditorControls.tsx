@@ -21,16 +21,16 @@ export function EditorControls() {
 
   return (
     <aside
-      className="sticky bottom-0 max-h-[46dvh] min-h-44 overflow-y-auto rounded-t-3xl border-t border-white/10 bg-panel/98 px-4 pb-[max(20px,var(--safe-bottom))] pt-3 backdrop-blur"
+      className="sticky bottom-0 max-h-[46dvh] min-h-44 overflow-y-auto rounded-t-3xl border-t border-white/10 bg-panel/98 px-4 pb-[max(20px,var(--safe-bottom))] pt-3 backdrop-blur lg:top-[88px] lg:max-h-[calc(100dvh-108px)] lg:min-h-0 lg:rounded-2xl lg:border lg:px-4 lg:pb-4 lg:pt-4"
       style={{ paddingLeft: 'max(16px,var(--safe-left))', paddingRight: 'max(16px,var(--safe-right))' }}
     >
-      <nav className="mb-4 flex items-center gap-2 overflow-x-auto pb-1">
+      <nav className="mb-4 flex items-center gap-2 overflow-x-auto pb-1 lg:flex-wrap lg:overflow-visible lg:pb-0">
         {MODES.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setMode(item.id)}
-            className={`min-h-11 rounded-full px-4 text-sm ${
+            className={`min-h-11 shrink-0 rounded-full px-4 text-sm lg:text-[13px] ${
               mode === item.id ? 'bg-accent text-black' : 'bg-white/10 text-white/80'
             }`}
           >

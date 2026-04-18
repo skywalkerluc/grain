@@ -232,14 +232,14 @@ export function EditorToolbar() {
 
   return (
     <header
-      className="sticky top-0 z-10 border-b border-white/10 bg-canvas/95 px-3 pb-2 pt-[max(8px,var(--safe-top))] backdrop-blur"
+      className="sticky top-0 z-20 border-b border-white/10 bg-canvas/95 px-3 pb-2 pt-[max(8px,var(--safe-top))] backdrop-blur lg:px-4"
       style={{ paddingLeft: 'max(12px,var(--safe-left))', paddingRight: 'max(12px,var(--safe-right))' }}
     >
-      <div className="flex min-h-14 items-center justify-between">
+      <div className="flex min-h-14 flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <Image src="/brand/logo.png" alt="grain" width={180} height={51} className="h-6 w-auto" />
+          <Image src="/brand/logo.png" alt="grain" width={180} height={51} className="h-6 w-auto lg:h-7" />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onPointerDown={() => setShowOriginalPreview(true)}
@@ -271,7 +271,7 @@ export function EditorToolbar() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={saveCurrentProject}
@@ -297,8 +297,8 @@ export function EditorToolbar() {
       </div>
 
       {showExportPanel ? (
-        <div className="mt-2 rounded-lg border border-white/10 bg-black/20 p-3">
-          <div className="mb-3 grid grid-cols-2 gap-2">
+        <div className="mt-2 rounded-lg border border-white/10 bg-black/20 p-3 lg:p-4">
+          <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <button
               type="button"
               onClick={() =>
@@ -328,7 +328,7 @@ export function EditorToolbar() {
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <label className="block">
               <span className="mb-1 block text-[11px] uppercase tracking-wide text-white/60">Formato</span>
               <select
@@ -368,7 +368,7 @@ export function EditorToolbar() {
             </label>
           </div>
 
-          <div className="mt-3 flex gap-2">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
               onClick={() => void exportCurrentImage()}
