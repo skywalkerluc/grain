@@ -20,12 +20,12 @@ type ProjectCard = {
 export default function ProjectsPage() {
   const router = useRouter();
   const setOriginalImage = useEditorStore((state) => state.setOriginalImage);
-  const setPipeline = useEditorStore((state) => state.setPipeline);
-  const setPreset = useEditorStore((state) => state.setPreset);
+  const loadProjectSnapshot = useEditorStore((state) => state.loadProjectSnapshot);
 
   const [items, setItems] = useState<ProjectCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const thumbUrlsRef = useRef<string[]>([]);
 
   useEffect(() => {
@@ -80,13 +80,13 @@ export default function ProjectsPage() {
       size: project.originalBlob.size
     });
 
-    setPipeline(pipeline);
-    setPreset(getLatestOperation(pipeline, 'preset')?.payload.presetId ?? null);
+    loadProjectSnapshot(pipeline, getLatestOperation(pipeline, 'preset')?.payload.presetId ?? null);
     router.push('/editor');
   };
 
   const removeProject = async (projectId: string) => {
     await deleteProject(projectId);
+    setPendingDeleteId(null);
     setItems((current) => {
       const target = current.find((item) => item.record.id === projectId);
       if (target) {
@@ -135,20 +135,41 @@ export default function ProjectsPage() {
               {new Date(item.record.updatedAt).toLocaleString('pt-BR')}
             </p>
             <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                onClick={() => openProject(item.record)}
-                className="min-h-11 flex-1 rounded-lg bg-accent px-2 text-xs font-semibold text-black"
-              >
-                Abrir
-              </button>
-              <button
-                type="button"
-                onClick={() => void removeProject(item.record.id)}
-                className="min-h-11 flex-1 rounded-lg bg-white/10 px-2 text-xs"
-              >
-                Deletar
-              </button>
+              {pendingDeleteId === item.record.id ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void removeProject(item.record.id)}
+                    className="min-h-11 flex-1 rounded-lg bg-red-500/80 px-2 text-xs font-semibold text-white"
+                  >
+                    Confirmar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(null)}
+                    className="min-h-11 flex-1 rounded-lg bg-white/10 px-2 text-xs"
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => openProject(item.record)}
+                    className="min-h-11 flex-1 rounded-lg bg-accent px-2 text-xs font-semibold text-black"
+                  >
+                    Abrir
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingDeleteId(item.record.id)}
+                    className="min-h-11 flex-1 rounded-lg bg-white/10 px-2 text-xs"
+                  >
+                    Deletar
+                  </button>
+                </>
+              )}
             </div>
           </article>
         ))}

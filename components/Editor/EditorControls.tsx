@@ -8,11 +8,11 @@ import { TextPanel } from '@/components/Text/TextPanel';
 import { useEditorStore, type EditorMode } from '@/store/editor/editorStore';
 
 const MODES: { id: EditorMode; label: string }[] = [
-  { id: 'presets', label: 'Presets' },
+  { id: 'presets', label: 'Filtros' },
   { id: 'adjustments', label: 'Ajustes' },
   { id: 'crop', label: 'Crop' },
   { id: 'text', label: 'Texto' },
-  { id: 'overlays', label: 'Overlays' }
+  { id: 'overlays', label: 'Texturas' }
 ];
 
 export function EditorControls() {

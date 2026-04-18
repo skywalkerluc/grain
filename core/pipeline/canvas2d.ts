@@ -111,6 +111,53 @@ function toCssFilter(adjustments: AdjustmentValues): string {
   return `brightness(${brightness}%) contrast(${contrast}%) saturate(${saturate}%)`;
 }
 
+function applySharpness(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  adjustments: AdjustmentValues
+): void {
+  const sharpness = clamp(adjustments.sharpness, 0, 100);
+  if (sharpness === 0 || width < 3 || height < 3) {
+    return;
+  }
+
+  const amount = sharpness / 100;
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const source = imageData.data;
+  const output = new Uint8ClampedArray(source);
+  const strength = 1 + amount * 1.8;
+
+  for (let y = 1; y < height - 1; y += 1) {
+    for (let x = 1; x < width - 1; x += 1) {
+      const index = (y * width + x) * 4;
+      let blurR = 0;
+      let blurG = 0;
+      let blurB = 0;
+
+      for (let ky = -1; ky <= 1; ky += 1) {
+        for (let kx = -1; kx <= 1; kx += 1) {
+          const sample = ((y + ky) * width + (x + kx)) * 4;
+          blurR += source[sample];
+          blurG += source[sample + 1];
+          blurB += source[sample + 2];
+        }
+      }
+
+      blurR /= 9;
+      blurG /= 9;
+      blurB /= 9;
+
+      output[index] = clamp(Math.round(source[index] + (source[index] - blurR) * strength), 0, 255);
+      output[index + 1] = clamp(Math.round(source[index + 1] + (source[index + 1] - blurG) * strength), 0, 255);
+      output[index + 2] = clamp(Math.round(source[index + 2] + (source[index + 2] - blurB) * strength), 0, 255);
+    }
+  }
+
+  imageData.data.set(output);
+  ctx.putImageData(imageData, 0, 0);
+}
+
 function applyTemperatureAndFade(
   ctx: CanvasRenderingContext2D,
   width: number,
@@ -448,6 +495,7 @@ export async function applyPipelineToCanvas(
   ctx.drawImage(sourceWithLut, 0, 0, transformed.width, transformed.height, 0, 0, width, height);
   ctx.filter = 'none';
 
+  applySharpness(ctx, width, height, adjustments);
   applyTemperatureAndFade(ctx, width, height, adjustments);
   applyVignette(ctx, width, height, adjustments);
   applyGrain(ctx, width, height, adjustments);

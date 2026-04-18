@@ -64,6 +64,7 @@ export function EditorToolbar() {
 
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [showExportPanel, setShowExportPanel] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [exportFormat, setExportFormat] = useState<'image/jpeg' | 'image/png'>('image/jpeg');
@@ -172,6 +173,54 @@ export function EditorToolbar() {
     }
   };
 
+  const shareCurrentImage = async () => {
+    if (!originalImage || isSharing) {
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      setNotice(null);
+
+      const imageElement = await loadImage(originalImage.objectUrl);
+      const blob = await exportPipelineBlob(
+        imageElement,
+        { width: imageElement.width, height: imageElement.height },
+        pipeline,
+        {
+          format: exportFormat,
+          quality: exportFormat === 'image/jpeg' ? exportQuality : undefined,
+          maxSide: exportSize === '1080' ? 1080 : undefined
+        }
+      );
+
+      const extension = exportFormat === 'image/png' ? 'png' : 'jpg';
+      const baseName = originalImage.fileName.replace(/\.[^.]+$/, '');
+      const fileName = `${baseName}-grain.${extension}`;
+      const file = new File([blob], fileName, { type: exportFormat });
+
+      if (
+        typeof navigator !== 'undefined' &&
+        'share' in navigator &&
+        'canShare' in navigator &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          title: 'Imagem editada no grain',
+          files: [file]
+        });
+        setNotice('Imagem compartilhada com sucesso.');
+      } else {
+        triggerDownload(blob, fileName);
+        setNotice('Compartilhamento indisponível neste dispositivo. Arquivo baixado.');
+      }
+    } catch {
+      setNotice('Não foi possível compartilhar a imagem agora.');
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
   return (
     <header
       className="sticky top-0 z-10 border-b border-white/10 bg-canvas/95 px-3 pb-2 pt-[max(8px,var(--safe-top))] backdrop-blur"
@@ -200,7 +249,7 @@ export function EditorToolbar() {
             onClick={undo}
             className="min-h-11 rounded-lg bg-white/10 px-3 text-sm disabled:opacity-40"
           >
-            Undo
+            Desfazer
           </button>
           <button
             type="button"
@@ -208,7 +257,7 @@ export function EditorToolbar() {
             onClick={redo}
             className="min-h-11 rounded-lg bg-white/10 px-3 text-sm disabled:opacity-40"
           >
-            Redo
+            Refazer
           </button>
         </div>
       </div>
@@ -310,14 +359,24 @@ export function EditorToolbar() {
             </label>
           </div>
 
-          <button
-            type="button"
-            onClick={() => void exportCurrentImage()}
-            disabled={isExporting || !originalImage}
-            className="mt-3 min-h-11 w-full rounded-lg bg-accent px-3 text-sm font-semibold text-black disabled:opacity-50"
-          >
-            {isExporting ? 'Exportando...' : 'Baixar Arquivo'}
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              onClick={() => void exportCurrentImage()}
+              disabled={isExporting || !originalImage}
+              className="min-h-11 flex-1 rounded-lg bg-accent px-3 text-sm font-semibold text-black disabled:opacity-50"
+            >
+              {isExporting ? 'Exportando...' : 'Baixar Arquivo'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void shareCurrentImage()}
+              disabled={isSharing || !originalImage}
+              className="min-h-11 rounded-lg bg-white/10 px-3 text-sm disabled:opacity-40"
+            >
+              {isSharing ? 'Compartilhando...' : 'Compartilhar'}
+            </button>
+          </div>
         </div>
       ) : null}
 

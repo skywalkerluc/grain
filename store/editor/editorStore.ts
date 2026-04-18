@@ -26,6 +26,8 @@ type EditorState = {
   showOriginalPreview: boolean;
   setOriginalImage: (image: OriginalImageRef) => void;
   setPipeline: (next: PipelineState) => void;
+  setPipelinePreview: (next: PipelineState) => void;
+  loadProjectSnapshot: (next: PipelineState, presetId: string | null) => void;
   setMode: (mode: EditorMode) => void;
   setCropAspectRatio: (ratio: CropAspectRatio) => void;
   setPreset: (presetId: string | null) => void;
@@ -82,6 +84,23 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       history,
       future: [],
       canUndo: history.length > 0,
+      canRedo: false
+    });
+  },
+
+  setPipelinePreview: (next) => {
+    set({
+      pipeline: clonePipeline(next)
+    });
+  },
+
+  loadProjectSnapshot: (next, presetId) => {
+    set({
+      pipeline: clonePipeline(next),
+      history: [],
+      future: [],
+      presetId,
+      canUndo: false,
       canRedo: false
     });
   },

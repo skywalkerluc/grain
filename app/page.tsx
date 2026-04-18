@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useEditorStore } from '@/store/editor/editorStore';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 export default function HomePage() {
   const router = useRouter();
@@ -15,13 +15,13 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   const helper = useMemo(
-    () => 'JPG, PNG, WebP e HEIC até 20 MB. Tudo processado localmente.',
+    () => 'JPG, PNG e WebP até 20 MB. Tudo processado localmente.',
     []
   );
 
   const handleFile = (file: File) => {
     if (!ALLOWED_TYPES.includes(file.type)) {
-      setError('Formato não suportado. Use JPG, PNG, WebP ou HEIC.');
+      setError('Formato não suportado. Use JPG, PNG ou WebP.');
       return;
     }
 
@@ -81,7 +81,7 @@ export default function HomePage() {
         <input
           ref={inputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+          accept="image/jpeg,image/png,image/webp"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];

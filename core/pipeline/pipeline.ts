@@ -182,7 +182,21 @@ export function clearLut(pipeline: PipelineState): PipelineState {
 
 export function setOverlay(
   pipeline: PipelineState,
-  payload: { overlayId: string; opacity: number; blendMode: 'normal' | 'multiply' | 'screen' | 'overlay' }
+  payload: {
+    overlayId: string;
+    opacity: number;
+    blendMode:
+      | 'normal'
+      | 'multiply'
+      | 'screen'
+      | 'overlay'
+      | 'darken'
+      | 'lighten'
+      | 'color-dodge'
+      | 'color-burn'
+      | 'hard-light'
+      | 'soft-light';
+  }
 ): PipelineState {
   return upsertOperation(pipeline, {
     id: crypto.randomUUID(),

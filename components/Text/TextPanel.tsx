@@ -11,8 +11,9 @@ export function TextPanel() {
   const setPipeline = useEditorStore((state) => state.setPipeline);
 
   const textOperation = getLatestOperation(pipeline, 'text')?.payload;
+  const hasText = Boolean(textOperation?.text);
 
-  const text = textOperation?.text ?? 'grain';
+  const text = textOperation?.text ?? '';
   const fontFamily = textOperation?.fontFamily ?? FONT_OPTIONS[0];
   const fontSize = textOperation?.fontSize ?? 36;
   const color = textOperation?.color ?? '#ffffff';
@@ -46,6 +47,26 @@ export function TextPanel() {
 
   return (
     <div className="space-y-4 pb-24">
+      {!hasText ? (
+        <button
+          type="button"
+          onClick={() =>
+            update({
+              text: 'Novo texto',
+              x,
+              y,
+              fontFamily,
+              fontSize,
+              color,
+              align
+            })
+          }
+          className="min-h-11 w-full rounded-lg bg-accent px-3 text-sm font-semibold text-black"
+        >
+          Adicionar texto
+        </button>
+      ) : null}
+
       <section>
         <label className="mb-1 block text-xs uppercase tracking-wide text-white/60">Texto</label>
         <input
@@ -55,6 +76,7 @@ export function TextPanel() {
           onChange={(event) => update({ text: event.target.value })}
           className="min-h-11 w-full rounded-lg border border-white/20 bg-black/20 px-3 text-sm"
           placeholder="Digite seu texto"
+          disabled={!hasText}
         />
       </section>
 
@@ -64,6 +86,7 @@ export function TextPanel() {
           <select
             value={fontFamily}
             onChange={(event) => update({ fontFamily: event.target.value })}
+            disabled={!hasText}
             className="min-h-11 w-full rounded-lg border border-white/20 bg-black/20 px-2 text-sm"
           >
             {FONT_OPTIONS.map((font) => (
@@ -80,6 +103,7 @@ export function TextPanel() {
             type="color"
             value={color}
             onChange={(event) => update({ color: event.target.value })}
+            disabled={!hasText}
             className="h-11 w-full rounded-lg border border-white/20 bg-black/20 p-1"
           />
         </label>
@@ -97,6 +121,7 @@ export function TextPanel() {
           step={1}
           value={fontSize}
           onChange={(event) => update({ fontSize: Number(event.target.value) })}
+          disabled={!hasText}
           className="h-11 w-full accent-accent"
         />
       </section>
@@ -109,6 +134,7 @@ export function TextPanel() {
               key={option}
               type="button"
               onClick={() => update({ align: option })}
+              disabled={!hasText}
               className={`min-h-11 rounded-lg text-sm capitalize ${
                 align === option ? 'bg-accent text-black' : 'bg-white/10 text-white/80'
               }`}
@@ -122,6 +148,7 @@ export function TextPanel() {
       <button
         type="button"
         onClick={() => setPipeline(clearTextOverlay(pipeline))}
+        disabled={!hasText}
         className="min-h-11 rounded-lg bg-white/10 px-3 text-sm"
       >
         Remover texto

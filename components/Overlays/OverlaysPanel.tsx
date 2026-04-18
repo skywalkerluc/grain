@@ -6,7 +6,18 @@ import { OVERLAYS, getOverlayById, type OverlayBlendMode } from '@/core/overlays
 import { clearOverlay, getLatestOperation, setOverlay } from '@/core/pipeline';
 import { useEditorStore } from '@/store/editor/editorStore';
 
-const BLEND_MODES: OverlayBlendMode[] = ['normal', 'multiply', 'screen', 'overlay'];
+const BLEND_MODES: OverlayBlendMode[] = [
+  'normal',
+  'multiply',
+  'screen',
+  'overlay',
+  'darken',
+  'lighten',
+  'color-dodge',
+  'color-burn',
+  'hard-light',
+  'soft-light'
+];
 
 export function OverlaysPanel() {
   const pipeline = useEditorStore((state) => state.pipeline);
@@ -113,7 +124,7 @@ export function OverlaysPanel() {
       </section>
 
       <section>
-        <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Blend Mode</p>
+        <p className="mb-2 text-xs uppercase tracking-wide text-white/60">Modo de Mesclagem</p>
         <div className="grid grid-cols-2 gap-2">
           {BLEND_MODES.map((mode) => (
             <button

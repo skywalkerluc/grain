@@ -77,7 +77,7 @@ export function PresetsPanel() {
               <button
                 key={item.id}
                 type="button"
-                onPointerDown={() => apply(item.id)}
+                onClick={() => apply(item.id)}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();

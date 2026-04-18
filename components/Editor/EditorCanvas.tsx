@@ -11,7 +11,7 @@ const DynamicEditorCanvasClient = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-[520px] items-center justify-center rounded-2xl bg-black/70 text-sm text-white/70">
+      <div className="flex min-h-[340px] w-full items-center justify-center rounded-2xl bg-black/70 text-sm text-white/70">
         Carregando editor...
       </div>
     )

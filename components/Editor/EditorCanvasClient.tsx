@@ -82,12 +82,39 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
   const showOriginalPreview = useEditorStore((state) => state.showOriginalPreview);
 
   const [image] = useImage(imageUrl, 'anonymous');
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewImage] = useImage(previewUrl ?? imageUrl, 'anonymous');
+  const [previewCanvas, setPreviewCanvas] = useState<HTMLCanvasElement | null>(null);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
+  const [stageSize, setStageSize] = useState({ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT });
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const previewTargetRef = useRef<HTMLCanvasElement | null>(null);
   const textNodeRef = useRef<Konva.Text>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+
+  useEffect(() => {
+    const element = containerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const recompute = () => {
+      const width = Math.max(260, Math.floor(element.clientWidth));
+      const maxHeight = Math.max(320, Math.floor(window.innerHeight * 0.56));
+      const idealHeight = Math.round(width * (VIEWPORT_HEIGHT / VIEWPORT_WIDTH));
+      const height = Math.max(300, Math.min(maxHeight, idealHeight));
+      setStageSize({ width, height });
+    };
+
+    recompute();
+    const observer = new ResizeObserver(() => recompute());
+    observer.observe(element);
+    window.addEventListener('resize', recompute);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', recompute);
+    };
+  }, []);
 
   useEffect(() => {
     if (!image) {
@@ -95,7 +122,8 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
     }
 
     if (pipeline.operations.length === 0) {
-      setPreviewUrl(null);
+      previewTargetRef.current = null;
+      setPreviewCanvas(null);
       return;
     }
 
@@ -105,12 +133,13 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
         image,
         { width: image.width, height: image.height },
         pipeline,
-        undefined,
+        previewTargetRef.current ?? undefined,
         undefined,
         { skipText: mode === 'text' }
       ).then((canvas) => {
         if (!cancelled) {
-          setPreviewUrl(canvas.toDataURL('image/png'));
+          previewTargetRef.current = canvas;
+          setPreviewCanvas(canvas);
         }
       });
     }, 16);
@@ -121,25 +150,25 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
     };
   }, [image, pipeline, mode]);
 
-  const activeImage = showOriginalPreview ? image : previewImage;
+  const activeImage = showOriginalPreview ? image : (previewCanvas ?? image);
   const textOperation = useMemo(() => getLatestOperation(pipeline, 'text')?.payload, [pipeline]);
 
   const fit = useMemo(() => {
     if (!activeImage) {
-      return { x: 0, y: 0, width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT };
+      return { x: 0, y: 0, width: stageSize.width, height: stageSize.height };
     }
 
-    const scale = Math.min(VIEWPORT_WIDTH / activeImage.width, VIEWPORT_HEIGHT / activeImage.height);
+    const scale = Math.min(stageSize.width / activeImage.width, stageSize.height / activeImage.height);
     const width = activeImage.width * scale;
     const height = activeImage.height * scale;
 
     return {
-      x: (VIEWPORT_WIDTH - width) / 2,
-      y: (VIEWPORT_HEIGHT - height) / 2,
+      x: (stageSize.width - width) / 2,
+      y: (stageSize.height - height) / 2,
       width,
       height
     };
-  }, [activeImage]);
+  }, [activeImage, stageSize.height, stageSize.width]);
 
   useEffect(() => {
     if (mode !== 'crop') {
@@ -191,6 +220,71 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
       let y = current.y;
       let width = current.width;
       let height = current.height;
+      const ratio = ratioToNumber(cropAspectRatio);
+
+      if (ratio) {
+        const left = current.x;
+        const top = current.y;
+
+        if (handle === 'topLeft') {
+          const maxWidth = right - fit.x;
+          const maxHeight = bottom - fit.y;
+          const rawWidth = right - position.x;
+          const rawHeight = bottom - position.y;
+          const limitedWidth = clamp(rawWidth, MIN_CROP_SIZE, maxWidth);
+          const limitedHeight = clamp(rawHeight, MIN_CROP_SIZE, maxHeight);
+          width = Math.min(limitedWidth, limitedHeight * ratio);
+          height = width / ratio;
+          x = right - width;
+          y = bottom - height;
+        }
+
+        if (handle === 'topRight') {
+          const maxWidth = fit.x + fit.width - left;
+          const maxHeight = bottom - fit.y;
+          const rawWidth = position.x - left;
+          const rawHeight = bottom - position.y;
+          const limitedWidth = clamp(rawWidth, MIN_CROP_SIZE, maxWidth);
+          const limitedHeight = clamp(rawHeight, MIN_CROP_SIZE, maxHeight);
+          width = Math.min(limitedWidth, limitedHeight * ratio);
+          height = width / ratio;
+          x = left;
+          y = bottom - height;
+        }
+
+        if (handle === 'bottomLeft') {
+          const maxWidth = right - fit.x;
+          const maxHeight = fit.y + fit.height - top;
+          const rawWidth = right - position.x;
+          const rawHeight = position.y - top;
+          const limitedWidth = clamp(rawWidth, MIN_CROP_SIZE, maxWidth);
+          const limitedHeight = clamp(rawHeight, MIN_CROP_SIZE, maxHeight);
+          width = Math.min(limitedWidth, limitedHeight * ratio);
+          height = width / ratio;
+          x = right - width;
+          y = top;
+        }
+
+        if (handle === 'bottomRight') {
+          const maxWidth = fit.x + fit.width - left;
+          const maxHeight = fit.y + fit.height - top;
+          const rawWidth = position.x - left;
+          const rawHeight = position.y - top;
+          const limitedWidth = clamp(rawWidth, MIN_CROP_SIZE, maxWidth);
+          const limitedHeight = clamp(rawHeight, MIN_CROP_SIZE, maxHeight);
+          width = Math.min(limitedWidth, limitedHeight * ratio);
+          height = width / ratio;
+          x = left;
+          y = top;
+        }
+
+        width = clamp(width, MIN_CROP_SIZE, fit.width);
+        height = clamp(height, MIN_CROP_SIZE, fit.height);
+        x = clamp(x, fit.x, fit.x + fit.width - width);
+        y = clamp(y, fit.y, fit.y + fit.height - height);
+
+        return { x, y, width, height };
+      }
 
       if (handle === 'topLeft') {
         x = clamp(position.x, fit.x, right - MIN_CROP_SIZE);
@@ -247,8 +341,8 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
   const textFontSize = textOperation ? Math.max(12, textOperation.fontSize * scaleY) : 12;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-black/70">
-      <Stage width={VIEWPORT_WIDTH} height={VIEWPORT_HEIGHT} className="w-full touch-pan-y">
+    <div ref={containerRef} className="relative overflow-hidden rounded-2xl bg-black/70">
+      <Stage width={stageSize.width} height={stageSize.height} className="w-full touch-pan-y">
         <Layer>
           {activeImage ? (
             <KonvaImage
@@ -277,11 +371,16 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
                 onDragEnd={(event) => {
                   const nextX = Math.round((event.target.x() - fit.x) / scaleX);
                   const nextY = Math.round((event.target.y() - fit.y) / scaleY);
+                  const textWidth = event.target.width() * event.target.scaleX();
+                  const textHeight = event.target.height() * event.target.scaleY();
+                  const maxX = activeImage.width - textWidth / scaleX;
+                  const maxY = activeImage.height - textHeight / scaleY;
+
                   setPipeline(
                     setTextOverlay(pipeline, {
                       ...textOperation,
-                      x: clamp(nextX, 0, activeImage.width),
-                      y: clamp(nextY, 0, activeImage.height)
+                      x: clamp(nextX, 0, maxX),
+                      y: clamp(nextY, 0, maxY)
                     })
                   );
                 }}
@@ -298,12 +397,16 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
 
                   const nextX = Math.round((node.x() - fit.x) / scaleX);
                   const nextY = Math.round((node.y() - fit.y) / scaleY);
+                  const textWidth = node.width();
+                  const textHeight = node.height();
+                  const maxX = activeImage.width - textWidth / scaleX;
+                  const maxY = activeImage.height - textHeight / scaleY;
 
                   setPipeline(
                     setTextOverlay(pipeline, {
                       ...textOperation,
-                      x: clamp(nextX, 0, activeImage.width),
-                      y: clamp(nextY, 0, activeImage.height),
+                      x: clamp(nextX, 0, maxX),
+                      y: clamp(nextY, 0, maxY),
                       fontSize: clamp(resizedFont, 12, 180)
                     })
                   );

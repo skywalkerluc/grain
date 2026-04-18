@@ -34,6 +34,11 @@ export function AdjustmentsPanel() {
   const pipeline = useEditorStore((state) => state.pipeline);
   const [values, setValues] = useState<AdjustmentValues>(() => getLatestAdjustments(pipeline));
   const timerRef = useRef<number | null>(null);
+  const dragRef = useRef<{
+    key: AdjustmentKey;
+    basePipeline: ReturnType<typeof useEditorStore.getState>['pipeline'];
+    previewPipeline: ReturnType<typeof useEditorStore.getState>['pipeline'] | null;
+  } | null>(null);
 
   useEffect(() => {
     setValues(getLatestAdjustments(pipeline));
@@ -56,9 +61,31 @@ export function AdjustmentsPanel() {
 
     timerRef.current = window.setTimeout(() => {
       const state = useEditorStore.getState();
-      const next = setAdjustment(state.pipeline, key, value);
-      state.setPipeline(next);
+      if (!dragRef.current || dragRef.current.key !== key) {
+        dragRef.current = {
+          key,
+          basePipeline: state.pipeline,
+          previewPipeline: null
+        };
+      }
+
+      const next = setAdjustment(dragRef.current.basePipeline, key, value);
+      dragRef.current.previewPipeline = next;
+      state.setPipelinePreview(next);
     }, PREVIEW_DEBOUNCE_MS);
+  };
+
+  const commitDrag = () => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+
+    const state = useEditorStore.getState();
+    if (dragRef.current?.previewPipeline) {
+      state.setPipeline(dragRef.current.previewPipeline);
+    }
+    dragRef.current = null;
   };
 
   return (
@@ -80,6 +107,16 @@ export function AdjustmentsPanel() {
               setValues((previous) => ({ ...previous, [item.key]: nextValue }));
               scheduleUpdate(item.key, nextValue);
             }}
+            onPointerDown={() => {
+              const state = useEditorStore.getState();
+              dragRef.current = {
+                key: item.key,
+                basePipeline: state.pipeline,
+                previewPipeline: null
+              };
+            }}
+            onPointerUp={commitDrag}
+            onPointerCancel={commitDrag}
             className="h-11 w-full accent-accent"
           />
         </label>

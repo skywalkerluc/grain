@@ -56,13 +56,23 @@ export type PipelineOperation =
         intensity: number;
       };
     }
-  | {
+    | {
       id: string;
       type: 'overlay';
       payload: {
         overlayId: string;
         opacity: number;
-        blendMode: 'normal' | 'multiply' | 'screen' | 'overlay';
+        blendMode:
+          | 'normal'
+          | 'multiply'
+          | 'screen'
+          | 'overlay'
+          | 'darken'
+          | 'lighten'
+          | 'color-dodge'
+          | 'color-burn'
+          | 'hard-light'
+          | 'soft-light';
       };
     }
   | {
