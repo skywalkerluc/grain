@@ -1,0 +1,6 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'>
+  <rect width='256' height='256' fill='transparent'/>
+  <g stroke='white' stroke-opacity='0.18' stroke-width='1'>
+    <path d='M18 0 L26 256'/><path d='M52 0 L56 256'/><path d='M88 0 L94 256'/><path d='M138 0 L142 256'/><path d='M184 0 L190 256'/><path d='M226 0 L238 256'/>
+  </g>
+</svg>
