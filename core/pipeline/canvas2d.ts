@@ -178,17 +178,176 @@ function applyGrain(
     return;
   }
 
-  const count = Math.floor((width * height * grain) / 12000);
-  ctx.save();
-  ctx.fillStyle = `rgba(255,255,255,${grain / 500})`;
+  const amount = grain / 100;
+  const profile = getGrainProfile(amount);
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  const speckCount = Math.floor((width * height * profile.densityFactor) / profile.speckDivisor);
 
-  for (let i = 0; i < count; i += 1) {
+  ctx.save();
+  for (let i = 0; i < speckCount; i += 1) {
     const x = Math.random() * width;
     const y = Math.random() * height;
-    ctx.fillRect(x, y, 1, 1);
+    const pixelIndex = (Math.floor(y) * width + Math.floor(x)) * 4;
+    const r = data[pixelIndex] / 255;
+    const g = data[pixelIndex + 1] / 255;
+    const b = data[pixelIndex + 2] / 255;
+    const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+
+    const shadowBoost = profile.shadowBase + (1 - luma) * profile.shadowLift;
+    const strength = amount * shadowBoost;
+    const alpha = clamp(
+      strength * (profile.alphaMin + Math.random() * profile.alphaRange),
+      profile.alphaClampMin,
+      profile.alphaClampMax
+    );
+    const radius = profile.radiusBase + Math.random() * (profile.radiusJitter + amount * profile.radiusScale);
+
+    if (Math.random() > 0.58) {
+      const warm = Math.random() * 12;
+      ctx.fillStyle = `rgba(${242 + warm},${236 + warm * 0.5},${228 + warm * 0.35},${alpha * 0.85})`;
+    } else {
+      const cool = Math.random() * 18;
+      ctx.fillStyle = `rgba(${20 + cool * 0.55},${18 + cool * 0.45},${24 + cool},${alpha})`;
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const clumpCount = Math.max(1, Math.floor(profile.clumpFactor * (0.8 + amount * 1.4)));
+  for (let i = 0; i < clumpCount; i += 1) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const radius = Math.max(
+      profile.clumpRadiusMin,
+      Math.min(width, height) * (profile.clumpRadiusBase + Math.random() * profile.clumpRadiusJitter)
+    );
+    const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    const alpha = amount * (profile.clumpAlphaMin + Math.random() * profile.clumpAlphaRange);
+
+    if (Math.random() > 0.5) {
+      gradient.addColorStop(0, `rgba(255,248,236,${alpha})`);
+    } else {
+      gradient.addColorStop(0, `rgba(22,20,26,${alpha})`);
+    }
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
   }
 
   ctx.restore();
+}
+
+type GrainProfile = {
+  speckDivisor: number;
+  densityFactor: number;
+  shadowBase: number;
+  shadowLift: number;
+  alphaMin: number;
+  alphaRange: number;
+  alphaClampMin: number;
+  alphaClampMax: number;
+  radiusBase: number;
+  radiusJitter: number;
+  radiusScale: number;
+  clumpFactor: number;
+  clumpRadiusMin: number;
+  clumpRadiusBase: number;
+  clumpRadiusJitter: number;
+  clumpAlphaMin: number;
+  clumpAlphaRange: number;
+};
+
+function getGrainProfile(amount: number): GrainProfile {
+  // Profiles emulate film stock behavior: low ISO is cleaner/finer, high ISO is denser/coarser.
+  if (amount < 0.18) {
+    return {
+      speckDivisor: 11000,
+      densityFactor: 0.48,
+      shadowBase: 0.38,
+      shadowLift: 0.72,
+      alphaMin: 0.06,
+      alphaRange: 0.1,
+      alphaClampMin: 0.01,
+      alphaClampMax: 0.16,
+      radiusBase: 0.32,
+      radiusJitter: 0.58,
+      radiusScale: 0.28,
+      clumpFactor: 1.4,
+      clumpRadiusMin: 8,
+      clumpRadiusBase: 0.015,
+      clumpRadiusJitter: 0.018,
+      clumpAlphaMin: 0.014,
+      clumpAlphaRange: 0.018
+    };
+  }
+
+  if (amount < 0.36) {
+    return {
+      speckDivisor: 8200,
+      densityFactor: 0.66,
+      shadowBase: 0.44,
+      shadowLift: 0.8,
+      alphaMin: 0.07,
+      alphaRange: 0.12,
+      alphaClampMin: 0.012,
+      alphaClampMax: 0.2,
+      radiusBase: 0.4,
+      radiusJitter: 0.78,
+      radiusScale: 0.4,
+      clumpFactor: 2.4,
+      clumpRadiusMin: 9,
+      clumpRadiusBase: 0.018,
+      clumpRadiusJitter: 0.022,
+      clumpAlphaMin: 0.016,
+      clumpAlphaRange: 0.022
+    };
+  }
+
+  if (amount < 0.56) {
+    return {
+      speckDivisor: 6400,
+      densityFactor: 0.86,
+      shadowBase: 0.52,
+      shadowLift: 0.88,
+      alphaMin: 0.08,
+      alphaRange: 0.14,
+      alphaClampMin: 0.015,
+      alphaClampMax: 0.24,
+      radiusBase: 0.5,
+      radiusJitter: 1.0,
+      radiusScale: 0.55,
+      clumpFactor: 3.4,
+      clumpRadiusMin: 10,
+      clumpRadiusBase: 0.022,
+      clumpRadiusJitter: 0.028,
+      clumpAlphaMin: 0.02,
+      clumpAlphaRange: 0.028
+    };
+  }
+
+  return {
+    speckDivisor: 5400,
+    densityFactor: 1.04,
+    shadowBase: 0.6,
+    shadowLift: 0.98,
+    alphaMin: 0.09,
+    alphaRange: 0.16,
+    alphaClampMin: 0.02,
+    alphaClampMax: 0.28,
+    radiusBase: 0.58,
+    radiusJitter: 1.15,
+    radiusScale: 0.68,
+    clumpFactor: 4.6,
+    clumpRadiusMin: 12,
+    clumpRadiusBase: 0.028,
+    clumpRadiusJitter: 0.034,
+    clumpAlphaMin: 0.024,
+    clumpAlphaRange: 0.03
+  };
 }
 
 async function applyOverlay(
