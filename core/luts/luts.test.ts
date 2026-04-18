@@ -8,4 +8,8 @@ describe('luts catalog', () => {
   it('resolves cinematic-teal LUT', () => {
     expect(getLutById('cinematic-teal')).toBeDefined();
   });
+
+  it('contains at least one cube LUT', () => {
+    expect(LUTS.some((lut) => lut.kind === 'cube')).toBe(true);
+  });
 });

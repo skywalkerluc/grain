@@ -23,6 +23,7 @@ type EditorState = {
   cropAspectRatio: CropAspectRatio;
   presetId: string | null;
   presetPack: PresetPackId;
+  presetStrength: number;
   canUndo: boolean;
   canRedo: boolean;
   showOriginalPreview: boolean;
@@ -34,6 +35,7 @@ type EditorState = {
   setCropAspectRatio: (ratio: CropAspectRatio) => void;
   setPreset: (presetId: string | null) => void;
   setPresetPack: (presetPack: PresetPackId) => void;
+  setPresetStrength: (presetStrength: number) => void;
   setShowOriginalPreview: (show: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -48,6 +50,41 @@ function pushHistory(history: PipelineState[], current: PipelineState, max: numb
   return next;
 }
 
+const PRESET_PACK_STORAGE_KEY = 'grain:lastPresetPack';
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+function readPersistedPresetPack(): PresetPackId {
+  if (typeof window === 'undefined') {
+    return DEFAULT_PRESET_PACK;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(PRESET_PACK_STORAGE_KEY);
+    if (raw === 'balanced' || raw === 'clean' || raw === 'filmic' || raw === 'bold' || raw === 'aged') {
+      return raw;
+    }
+  } catch {
+    // Ignore storage failures and use default.
+  }
+
+  return DEFAULT_PRESET_PACK;
+}
+
+function persistPresetPack(pack: PresetPackId): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(PRESET_PACK_STORAGE_KEY, pack);
+  } catch {
+    // Ignore storage failures.
+  }
+}
+
 export const useEditorStore = create<EditorState>((set, get) => ({
   originalImage: null,
   pipeline: createPipeline(),
@@ -57,7 +94,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   mode: 'adjustments',
   cropAspectRatio: 'free',
   presetId: null,
-  presetPack: DEFAULT_PRESET_PACK,
+  presetPack: readPersistedPresetPack(),
+  presetStrength: 100,
   canUndo: false,
   canRedo: false,
   showOriginalPreview: false,
@@ -76,7 +114,8 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       canUndo: false,
       canRedo: false,
       showOriginalPreview: false,
-      presetPack: DEFAULT_PRESET_PACK
+      presetPack: readPersistedPresetPack(),
+      presetStrength: 100
     });
   },
 
@@ -105,6 +144,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       history: [],
       future: [],
       presetId,
+      presetStrength: 100,
       canUndo: false,
       canRedo: false
     });
@@ -116,7 +156,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setPreset: (presetId) => set({ presetId }),
 
-  setPresetPack: (presetPack) => set({ presetPack }),
+  setPresetPack: (presetPack) => {
+    persistPresetPack(presetPack);
+    set({ presetPack });
+  },
+
+  setPresetStrength: (presetStrength) => set({ presetStrength: clamp(Math.round(presetStrength), 0, 100) }),
 
   setShowOriginalPreview: (showOriginalPreview) => set({ showOriginalPreview }),
 
@@ -163,6 +208,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       history: [],
       future: [],
       presetId: null,
+      presetStrength: 100,
       canUndo: false,
       canRedo: false,
       showOriginalPreview: false

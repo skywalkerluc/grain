@@ -83,6 +83,7 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
 
   const [image] = useImage(imageUrl, 'anonymous');
   const [previewCanvas, setPreviewCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [isRendering, setIsRendering] = useState(false);
   const [cropRect, setCropRect] = useState<CropRect | null>(null);
   const [stageSize, setStageSize] = useState({ width: VIEWPORT_WIDTH, height: VIEWPORT_HEIGHT });
 
@@ -128,6 +129,7 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
     }
 
     let cancelled = false;
+    setIsRendering(true);
     const timeout = window.setTimeout(() => {
       void applyPipelineToCanvas(
         image,
@@ -140,6 +142,7 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
         if (!cancelled) {
           previewTargetRef.current = canvas;
           setPreviewCanvas(canvas);
+          setIsRendering(false);
         }
       });
     }, 16);
@@ -147,11 +150,13 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);
+      setIsRendering(false);
     };
   }, [image, pipeline, mode]);
 
   const activeImage = showOriginalPreview ? image : (previewCanvas ?? image);
   const textOperation = useMemo(() => getLatestOperation(pipeline, 'text')?.payload, [pipeline]);
+  const hasActivePreset = useMemo(() => Boolean(getLatestOperation(pipeline, 'preset')), [pipeline]);
 
   const fit = useMemo(() => {
     if (!activeImage) {
@@ -511,6 +516,17 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
           ) : null}
         </Layer>
       </Stage>
+
+      {isRendering ? (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="rounded-xl bg-black/40 px-3 py-2 text-center">
+            <div className="mx-auto h-6 w-6 animate-spin rounded-full border-2 border-white/20 border-t-white/80" />
+            {mode === 'presets' && hasActivePreset ? (
+              <p className="mt-2 text-xs text-white/85">Aplicando preset...</p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {mode === 'crop' ? (
         <button

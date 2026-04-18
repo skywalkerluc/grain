@@ -6,22 +6,42 @@ import Image from 'next/image';
 import { useEditorStore } from '@/store/editor/editorStore';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const HEIC_TYPES = new Set(['image/heic', 'image/heif']);
+
+async function normalizeFile(file: File): Promise<{ blob: Blob; mimeType: string; fileName: string }> {
+  const isHeic = HEIC_TYPES.has(file.type) ||
+    (!file.type && /\.(heic|heif)$/i.test(file.name));
+
+  if (isHeic) {
+    const heic2any = (await import('heic2any')).default;
+    const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.92 });
+    const blob = Array.isArray(converted) ? converted[0] : converted;
+    const fileName = file.name.replace(/\.(heic|heif)$/i, '.jpg');
+    return { blob, mimeType: 'image/jpeg', fileName };
+  }
+
+  return { blob: file, mimeType: file.type, fileName: file.name };
+}
 
 export default function HomePage() {
   const router = useRouter();
   const setOriginalImage = useEditorStore((state) => state.setOriginalImage);
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [converting, setConverting] = useState(false);
 
   const helper = useMemo(
-    () => 'JPG, PNG e WebP até 20 MB. Tudo processado localmente.',
+    () => 'JPG, PNG, WebP e HEIC até 20 MB. Tudo processado localmente.',
     []
   );
 
-  const handleFile = (file: File) => {
-    if (!ALLOWED_TYPES.includes(file.type)) {
-      setError('Formato não suportado. Use JPG, PNG ou WebP.');
+  const handleFile = async (file: File) => {
+    const isHeic = HEIC_TYPES.has(file.type) || (!file.type && /\.(heic|heif)$/i.test(file.name));
+    const effectiveType = isHeic ? 'image/heic' : file.type;
+
+    if (!ALLOWED_TYPES.includes(effectiveType)) {
+      setError('Formato não suportado. Use JPG, PNG, WebP ou HEIC.');
       return;
     }
 
@@ -31,17 +51,29 @@ export default function HomePage() {
     }
 
     setError(null);
-    const objectUrl = URL.createObjectURL(file);
 
-    setOriginalImage({
-      id: crypto.randomUUID(),
-      fileName: file.name,
-      mimeType: file.type,
-      objectUrl,
-      size: file.size
-    });
+    try {
+      if (isHeic) {
+        setConverting(true);
+      }
 
-    router.push('/editor');
+      const { blob, mimeType, fileName } = await normalizeFile(file);
+      const objectUrl = URL.createObjectURL(blob);
+
+      setOriginalImage({
+        id: crypto.randomUUID(),
+        fileName,
+        mimeType,
+        objectUrl,
+        size: blob.size
+      });
+
+      router.push('/editor');
+    } catch {
+      setError('Não foi possível converter o arquivo HEIC. Tente exportar como JPG no seu dispositivo.');
+    } finally {
+      setConverting(false);
+    }
   };
 
   return (
@@ -55,19 +87,23 @@ export default function HomePage() {
             event.preventDefault();
             const file = event.dataTransfer.files[0];
             if (file) {
-              handleFile(file);
+              void handleFile(file);
             }
           }}
           onDragOver={(event) => event.preventDefault()}
           className="mt-6 flex min-h-40 items-center justify-center rounded-xl border border-dashed border-white/30 p-4 text-center"
         >
-          <button
-            type="button"
-            className="min-h-11 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-black"
-            onClick={() => inputRef.current?.click()}
-          >
-            Escolher Foto
-          </button>
+          {converting ? (
+            <p className="text-sm text-white/70">Convertendo HEIC...</p>
+          ) : (
+            <button
+              type="button"
+              className="min-h-11 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-black"
+              onClick={() => inputRef.current?.click()}
+            >
+              Escolher Foto
+            </button>
+          )}
         </div>
 
         <button
@@ -81,12 +117,12 @@ export default function HomePage() {
         <input
           ref={inputRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
           className="hidden"
           onChange={(event) => {
             const file = event.target.files?.[0];
             if (file) {
-              handleFile(file);
+              void handleFile(file);
             }
           }}
         />

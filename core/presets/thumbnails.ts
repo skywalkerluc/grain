@@ -28,12 +28,17 @@ export async function renderAllPresetThumbnails(
   image: CanvasImageSource,
   imageSize: { width: number; height: number },
   size = 96,
-  presets: PresetDefinition[] = PRESETS
+  presets: PresetDefinition[] = PRESETS,
+  onProgress?: (id: string, dataUrl: string) => void
 ): Promise<PresetThumbnail[]> {
-  const tasks: Promise<PresetThumbnail>[] = [
-    renderPresetThumbnail(image, imageSize, null, size),
-    ...presets.map((preset) => renderPresetThumbnail(image, imageSize, preset, size))
-  ];
+  const results: PresetThumbnail[] = [];
 
-  return Promise.all(tasks);
+  const ordered = [null, ...presets];
+  for (const preset of ordered) {
+    const result = await renderPresetThumbnail(image, imageSize, preset, size);
+    results.push(result);
+    onProgress?.(result.id, result.dataUrl);
+  }
+
+  return results;
 }

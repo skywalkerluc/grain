@@ -11,7 +11,8 @@ export type PresetDefinition = {
   lutIntensity?: number;
 };
 
-export type PresetPackId = 'balanced' | 'clean' | 'filmic' | 'bold';
+export type PresetPackId = 'balanced' | 'clean' | 'filmic' | 'bold' | 'aged';
+export type AgedPackVariant = 'soft' | 'medium' | 'strong';
 
 function preset(
   id: string,
@@ -35,6 +36,23 @@ function preset(
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function blendAdjustmentValue(value: number, strength: number): number {
+  return Math.round(value * strength);
+}
+
+function blendAdjustmentsWithStrength(adjustments: AdjustmentValues, strength: number): AdjustmentValues {
+  return {
+    brightness: blendAdjustmentValue(adjustments.brightness, strength),
+    contrast: blendAdjustmentValue(adjustments.contrast, strength),
+    saturation: blendAdjustmentValue(adjustments.saturation, strength),
+    temperature: blendAdjustmentValue(adjustments.temperature, strength),
+    sharpness: blendAdjustmentValue(adjustments.sharpness, strength),
+    vignette: blendAdjustmentValue(adjustments.vignette, strength),
+    fade: blendAdjustmentValue(adjustments.fade, strength),
+    grain: blendAdjustmentValue(adjustments.grain, strength)
+  };
 }
 
 function tuneAdjustments(base: AdjustmentValues, pack: PresetPackId): AdjustmentValues {
@@ -83,6 +101,9 @@ function tuneLutIntensity(baseIntensity: number, pack: PresetPackId): number {
   if (pack === 'bold') {
     return clamp(baseIntensity * 1.2, 0, 1);
   }
+  if (pack === 'aged') {
+    return clamp(baseIntensity * 1.08, 0, 1);
+  }
   return clamp(baseIntensity, 0, 1);
 }
 
@@ -103,9 +124,51 @@ function buildPack(base: PresetDefinition[], pack: PresetPackId): PresetDefiniti
   });
 }
 
+function buildAgedCameraPack(base: PresetDefinition[]): PresetDefinition[] {
+  const agedStyleByCategory: Record<PresetCategory, string> = {
+    Vintage: 'Filme Vencido',
+    Clean: 'Instantânea Antiga',
+    Dark: 'Cromo Desbotado',
+    Film: 'Câmera Analógica'
+  };
+
+  return base.map((item) => {
+    const next = tuneAdjustments(item.adjustments, 'filmic');
+    const agedAdjustments: AdjustmentValues = {
+      ...next,
+      brightness: clamp(next.brightness - 2, -100, 100),
+      contrast: clamp(next.contrast - 6, -100, 100),
+      saturation: clamp(next.saturation - 6, -100, 100),
+      temperature: clamp(next.temperature + 4, -100, 100),
+      fade: clamp(next.fade + 10, 0, 100),
+      grain: clamp(next.grain + 12, 0, 100),
+      vignette: clamp(next.vignette + 8, 0, 100),
+      sharpness: clamp(next.sharpness - 2, 0, 100)
+    };
+
+    let agedLutId = item.lutId;
+    if (item.category === 'Vintage' || item.category === 'Film') {
+      agedLutId = 'expired-analog';
+    } else if (item.category === 'Clean') {
+      agedLutId = 'polaroid-fade';
+    } else if (item.category === 'Dark') {
+      agedLutId = 'lomo-chrome';
+    }
+
+    return {
+      ...item,
+      id: `${item.id}-aged`,
+      name: `${item.name} · ${agedStyleByCategory[item.category]}`,
+      adjustments: agedAdjustments,
+      lutId: agedLutId,
+      lutIntensity: tuneLutIntensity(item.lutIntensity ?? 1, 'aged')
+    };
+  });
+}
+
 const BASE_PRESETS: PresetDefinition[] = [
   // Vintage — three clearly distinct film aesthetics
-  preset('vintage-sienna', 'Old Roll', 'Vintage', {
+  preset('vintage-sienna', 'Rolo Antigo', 'Vintage', {
     brightness: -2,
     contrast: -10,
     saturation: -18,
@@ -115,7 +178,7 @@ const BASE_PRESETS: PresetDefinition[] = [
     vignette: 20
   }, { lutId: 'expired-analog', lutIntensity: 0.88 }),
 
-  preset('vintage-linen', 'Linen Fade', 'Vintage', {
+  preset('vintage-linen', 'Linho Desbotado', 'Vintage', {
     brightness: 10,
     contrast: -16,
     saturation: -12,
@@ -125,7 +188,7 @@ const BASE_PRESETS: PresetDefinition[] = [
     vignette: 8
   }, { lutId: 'polaroid-fade', lutIntensity: 0.76 }),
 
-  preset('vintage-amber', 'Amber 35', 'Vintage', {
+  preset('vintage-amber', 'Âmbar 35', 'Vintage', {
     brightness: 6,
     contrast: 4,
     saturation: -8,
@@ -136,7 +199,7 @@ const BASE_PRESETS: PresetDefinition[] = [
   }, { lutId: 'warm-kodak', lutIntensity: 0.88 }),
 
   // Clean — neutral to cool, high clarity
-  preset('clean-crisp', 'Crisp Day', 'Clean', {
+  preset('clean-crisp', 'Dia Nítido', 'Clean', {
     brightness: 14,
     contrast: 10,
     saturation: 4,
@@ -145,7 +208,7 @@ const BASE_PRESETS: PresetDefinition[] = [
     sharpness: 14
   }),
 
-  preset('clean-natural', 'Natural Pop', 'Clean', {
+  preset('clean-natural', 'Natural Vivo', 'Clean', {
     brightness: 8,
     contrast: 8,
     saturation: 14,
@@ -154,7 +217,7 @@ const BASE_PRESETS: PresetDefinition[] = [
     sharpness: 8
   }),
 
-  preset('clean-cool', 'Cool Glass', 'Clean', {
+  preset('clean-cool', 'Vidro Frio', 'Clean', {
     brightness: 10,
     contrast: 12,
     saturation: 4,
@@ -166,7 +229,7 @@ const BASE_PRESETS: PresetDefinition[] = [
   }, { lutId: 'cinematic-teal', lutIntensity: 0.44 }),
 
   // Dark — three distinct shadow aesthetics
-  preset('dark-ink', 'Ink Night', 'Dark', {
+  preset('dark-ink', 'Noite Tinta', 'Dark', {
     brightness: -20,
     contrast: 26,
     saturation: -28,
@@ -175,7 +238,7 @@ const BASE_PRESETS: PresetDefinition[] = [
     grain: 20
   }, { lutId: 'noir-silver', lutIntensity: 0.52 }),
 
-  preset('dark-graphite', 'Graphite', 'Dark', {
+  preset('dark-graphite', 'Grafite', 'Dark', {
     brightness: -8,
     contrast: 20,
     saturation: -22,
@@ -185,7 +248,7 @@ const BASE_PRESETS: PresetDefinition[] = [
     sharpness: 4
   }, { lutId: 'cool-bleach', lutIntensity: 0.68 }),
 
-  preset('dark-neon', 'Neon Alley', 'Dark', {
+  preset('dark-neon', 'Beco Neon', 'Dark', {
     brightness: -14,
     contrast: 24,
     saturation: 8,
@@ -215,7 +278,7 @@ const BASE_PRESETS: PresetDefinition[] = [
     vignette: 10
   }, { lutId: 'expired-analog', lutIntensity: 0.46 }),
 
-  preset('film-cross', 'Cross Dev', 'Film', {
+  preset('film-cross', 'Cross Process', 'Film', {
     brightness: -4,
     contrast: 22,
     saturation: 18,
@@ -230,7 +293,8 @@ export const PRESET_PACKS: Record<PresetPackId, PresetDefinition[]> = {
   balanced: BASE_PRESETS,
   clean: buildPack(BASE_PRESETS, 'clean'),
   filmic: buildPack(BASE_PRESETS, 'filmic'),
-  bold: buildPack(BASE_PRESETS, 'bold')
+  bold: buildPack(BASE_PRESETS, 'bold'),
+  aged: buildAgedCameraPack(BASE_PRESETS)
 };
 
 export const DEFAULT_PRESET_PACK: PresetPackId = 'balanced';
@@ -249,6 +313,9 @@ export function inferPresetPackFromId(presetId: string): PresetPackId {
   if (presetId.endsWith('-bold')) {
     return 'bold';
   }
+  if (presetId.endsWith('-aged')) {
+    return 'aged';
+  }
   return 'balanced';
 }
 
@@ -260,7 +327,8 @@ export function getPresetById(id: string): PresetDefinition | undefined {
 
 export function applyPresetToPipeline(
   pipeline: PipelineState,
-  preset: PresetDefinition | null
+  preset: PresetDefinition | null,
+  strengthPercent = 100
 ): PipelineState {
   const withoutPresetAdjustmentsAndLut = {
     ...pipeline,
@@ -274,6 +342,8 @@ export function applyPresetToPipeline(
     return withoutPresetAdjustmentsAndLut;
   }
 
+  const normalizedStrength = clamp(strengthPercent, 0, 100) / 100;
+
   const withPreset = upsertOperation(withoutPresetAdjustmentsAndLut, {
     id: crypto.randomUUID(),
     type: 'preset',
@@ -283,7 +353,7 @@ export function applyPresetToPipeline(
   const withAdjustments = upsertOperation(withPreset, {
     id: crypto.randomUUID(),
     type: 'adjustments',
-    payload: preset.adjustments
+    payload: blendAdjustmentsWithStrength(preset.adjustments, normalizedStrength)
   });
 
   if (!preset.lutId) {
@@ -295,7 +365,7 @@ export function applyPresetToPipeline(
     type: 'lut',
     payload: {
       lutId: preset.lutId,
-      intensity: preset.lutIntensity ?? 1
+      intensity: clamp((preset.lutIntensity ?? 1) * normalizedStrength, 0, 1)
     }
   });
 }

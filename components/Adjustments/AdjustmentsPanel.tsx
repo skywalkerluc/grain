@@ -28,6 +28,17 @@ const CONTROLS: AdjustmentControl[] = [
   { key: 'grain', label: 'Grão', min: 0, max: 100, step: 1 }
 ];
 
+const DEFAULT_VALUES: AdjustmentValues = {
+  brightness: 0,
+  contrast: 0,
+  saturation: 0,
+  temperature: 0,
+  sharpness: 0,
+  vignette: 0,
+  fade: 0,
+  grain: 0
+};
+
 const PREVIEW_DEBOUNCE_MS = 16;
 
 export function AdjustmentsPanel() {
@@ -90,37 +101,65 @@ export function AdjustmentsPanel() {
 
   return (
     <div className="space-y-4">
-      {entries.map((item) => (
-        <label key={item.key} className="block">
-          <div className="mb-1 flex items-center justify-between text-sm">
-            <span className="text-white/90">{item.label}</span>
-            <span className="text-white/60">{values[item.key]}</span>
-          </div>
-          <input
-            type="range"
-            min={item.min}
-            max={item.max}
-            step={item.step}
-            value={values[item.key]}
-            onChange={(event) => {
-              const nextValue = Number(event.target.value);
-              setValues((previous) => ({ ...previous, [item.key]: nextValue }));
-              scheduleUpdate(item.key, nextValue);
-            }}
-            onPointerDown={() => {
-              const state = useEditorStore.getState();
-              dragRef.current = {
-                key: item.key,
-                basePipeline: state.pipeline,
-                previewPipeline: null
-              };
-            }}
-            onPointerUp={commitDrag}
-            onPointerCancel={commitDrag}
-            className="h-11 w-full accent-accent"
-          />
-        </label>
-      ))}
+      {entries.map((item) => {
+        const defaultValue = DEFAULT_VALUES[item.key];
+        const isDirty = values[item.key] !== defaultValue;
+
+        const resetControl = () => {
+          if (!isDirty) {
+            return;
+          }
+          const state = useEditorStore.getState();
+          const next = setAdjustment(state.pipeline, item.key, defaultValue);
+          setValues((previous) => ({ ...previous, [item.key]: defaultValue }));
+          state.setPipeline(next);
+        };
+
+        return (
+          <label key={item.key} className="block">
+            <div className="mb-1 flex items-center justify-between text-sm">
+              <span className="text-white/90">{item.label}</span>
+              <span
+                role="button"
+                tabIndex={isDirty ? 0 : -1}
+                onDoubleClick={resetControl}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    resetControl();
+                  }
+                }}
+                title={isDirty ? 'Duplo clique para resetar' : undefined}
+                className={`text-white/60 ${isDirty ? 'cursor-pointer underline decoration-dotted' : ''}`}
+              >
+                {item.min < 0 && values[item.key] > 0 ? `+${values[item.key]}` : values[item.key]}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={item.min}
+              max={item.max}
+              step={item.step}
+              value={values[item.key]}
+              onChange={(event) => {
+                const nextValue = Number(event.target.value);
+                setValues((previous) => ({ ...previous, [item.key]: nextValue }));
+                scheduleUpdate(item.key, nextValue);
+              }}
+              onPointerDown={() => {
+                const state = useEditorStore.getState();
+                dragRef.current = {
+                  key: item.key,
+                  basePipeline: state.pipeline,
+                  previewPipeline: null
+                };
+              }}
+              onPointerUp={commitDrag}
+              onPointerCancel={commitDrag}
+              className="h-11 w-full accent-accent"
+            />
+          </label>
+        );
+      })}
     </div>
   );
 }

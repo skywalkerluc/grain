@@ -1,6 +1,6 @@
 import { createPipeline, getLatestAdjustments, getLatestOperation } from '@/core/pipeline';
 import { getLutById } from '@/core/luts';
-import { PRESET_PACKS, PRESETS, applyPresetToPipeline } from './presets';
+import { PRESET_PACKS, PRESETS, applyPresetToPipeline, inferPresetPackFromId } from './presets';
 
 describe('presets', () => {
   it('has at least 12 presets', () => {
@@ -57,5 +57,9 @@ describe('presets', () => {
       expect(ids.length).toBeGreaterThan(0);
       expect(packId.length).toBeGreaterThan(0);
     }
+  });
+
+  it('resolves aged pack suffix from preset id', () => {
+    expect(inferPresetPackFromId('film-iso400-aged')).toBe('aged');
   });
 });

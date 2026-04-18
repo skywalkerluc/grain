@@ -1,4 +1,4 @@
-import { getLutById, type LutDefinition } from './luts';
+import { buildCubeTable, getLutById, type CubeLutDefinition, type LutDefinition, type MatrixLutDefinition } from './luts';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
@@ -11,10 +11,10 @@ function createCanvas(width: number, height: number): HTMLCanvasElement {
   return canvas;
 }
 
-function applyLutFallbackCanvas(
+function applyMatrixLutFallbackCanvas(
   source: CanvasImageSource,
   size: { width: number; height: number },
-  lut: LutDefinition,
+  lut: MatrixLutDefinition,
   intensity: number,
   target?: HTMLCanvasElement
 ): HTMLCanvasElement {
@@ -42,6 +42,120 @@ function applyLutFallbackCanvas(
     const lutR = clamp(lut.matrix[0] * r + lut.matrix[1] * g + lut.matrix[2] * b + lut.offset[0], 0, 1);
     const lutG = clamp(lut.matrix[3] * r + lut.matrix[4] * g + lut.matrix[5] * b + lut.offset[1], 0, 1);
     const lutB = clamp(lut.matrix[6] * r + lut.matrix[7] * g + lut.matrix[8] * b + lut.offset[2], 0, 1);
+
+    data[i] = Math.round((r * (1 - mix) + lutR * mix) * 255);
+    data[i + 1] = Math.round((g * (1 - mix) + lutG * mix) * 255);
+    data[i + 2] = Math.round((b * (1 - mix) + lutB * mix) * 255);
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+function cubeSampleAt(table: Float32Array, size: number, r: number, g: number, b: number): [number, number, number] {
+  const index = ((b * size + g) * size + r) * 3;
+  return [table[index], table[index + 1], table[index + 2]];
+}
+
+function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function sampleCubeLut(table: Float32Array, size: number, r: number, g: number, b: number): [number, number, number] {
+  const scaledR = clamp(r, 0, 1) * (size - 1);
+  const scaledG = clamp(g, 0, 1) * (size - 1);
+  const scaledB = clamp(b, 0, 1) * (size - 1);
+
+  const r0 = Math.floor(scaledR);
+  const g0 = Math.floor(scaledG);
+  const b0 = Math.floor(scaledB);
+
+  const r1 = Math.min(size - 1, r0 + 1);
+  const g1 = Math.min(size - 1, g0 + 1);
+  const b1 = Math.min(size - 1, b0 + 1);
+
+  const tr = scaledR - r0;
+  const tg = scaledG - g0;
+  const tb = scaledB - b0;
+
+  const c000 = cubeSampleAt(table, size, r0, g0, b0);
+  const c100 = cubeSampleAt(table, size, r1, g0, b0);
+  const c010 = cubeSampleAt(table, size, r0, g1, b0);
+  const c110 = cubeSampleAt(table, size, r1, g1, b0);
+  const c001 = cubeSampleAt(table, size, r0, g0, b1);
+  const c101 = cubeSampleAt(table, size, r1, g0, b1);
+  const c011 = cubeSampleAt(table, size, r0, g1, b1);
+  const c111 = cubeSampleAt(table, size, r1, g1, b1);
+
+  const c00: [number, number, number] = [
+    lerp(c000[0], c100[0], tr),
+    lerp(c000[1], c100[1], tr),
+    lerp(c000[2], c100[2], tr)
+  ];
+  const c10: [number, number, number] = [
+    lerp(c010[0], c110[0], tr),
+    lerp(c010[1], c110[1], tr),
+    lerp(c010[2], c110[2], tr)
+  ];
+  const c01: [number, number, number] = [
+    lerp(c001[0], c101[0], tr),
+    lerp(c001[1], c101[1], tr),
+    lerp(c001[2], c101[2], tr)
+  ];
+  const c11: [number, number, number] = [
+    lerp(c011[0], c111[0], tr),
+    lerp(c011[1], c111[1], tr),
+    lerp(c011[2], c111[2], tr)
+  ];
+
+  const c0: [number, number, number] = [
+    lerp(c00[0], c10[0], tg),
+    lerp(c00[1], c10[1], tg),
+    lerp(c00[2], c10[2], tg)
+  ];
+  const c1: [number, number, number] = [
+    lerp(c01[0], c11[0], tg),
+    lerp(c01[1], c11[1], tg),
+    lerp(c01[2], c11[2], tg)
+  ];
+
+  return [
+    lerp(c0[0], c1[0], tb),
+    lerp(c0[1], c1[1], tb),
+    lerp(c0[2], c1[2], tb)
+  ];
+}
+
+function applyCubeLutFallbackCanvas(
+  source: CanvasImageSource,
+  size: { width: number; height: number },
+  lut: CubeLutDefinition,
+  intensity: number,
+  target?: HTMLCanvasElement
+): HTMLCanvasElement {
+  const canvas = target ?? createCanvas(size.width, size.height);
+  canvas.width = size.width;
+  canvas.height = size.height;
+
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
+    throw new Error('2D context not available');
+  }
+
+  ctx.clearRect(0, 0, size.width, size.height);
+  ctx.drawImage(source, 0, 0, size.width, size.height);
+
+  const imageData = ctx.getImageData(0, 0, size.width, size.height);
+  const data = imageData.data;
+  const mix = clamp(intensity, 0, 1);
+  const table = buildCubeTable(lut);
+
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i] / 255;
+    const g = data[i + 1] / 255;
+    const b = data[i + 2] / 255;
+
+    const [lutR, lutG, lutB] = sampleCubeLut(table, lut.size, r, g, b);
 
     data[i] = Math.round((r * (1 - mix) + lutR * mix) * 255);
     data[i + 1] = Math.round((g * (1 - mix) + lutG * mix) * 255);
@@ -201,7 +315,7 @@ function getGlCache(): GlCache | null {
 function applyLutWebGL(
   source: CanvasImageSource,
   size: { width: number; height: number },
-  lut: LutDefinition,
+  lut: MatrixLutDefinition,
   intensity: number
 ): HTMLCanvasElement | null {
   const cache = getGlCache();
@@ -255,10 +369,14 @@ export async function applyLutToCanvas(
     return passthrough;
   }
 
-  const webgl = applyLutWebGL(source, size, lut, intensity);
-  if (webgl) {
-    return webgl;
+  if (lut.kind === 'matrix') {
+    const webgl = applyLutWebGL(source, size, lut, intensity);
+    if (webgl) {
+      return webgl;
+    }
+
+    return applyMatrixLutFallbackCanvas(source, size, lut, intensity, target);
   }
 
-  return applyLutFallbackCanvas(source, size, lut, intensity, target);
+  return applyCubeLutFallbackCanvas(source, size, lut, intensity, target);
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { applyPipelineToCanvas, exportPipelineBlob, getLatestOperation } from '@/core/pipeline';
@@ -66,7 +66,20 @@ export function EditorToolbar() {
   const [isExporting, setIsExporting] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [showExportPanel, setShowExportPanel] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error'; id: number } | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
+
+  const showToast = useCallback((message: string, type: 'success' | 'error') => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    const id = Date.now();
+    setToast({ message, type, id });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+      toastTimerRef.current = null;
+    }, 3500);
+  }, []);
   const [exportFormat, setExportFormat] = useState<'image/jpeg' | 'image/png'>('image/jpeg');
   const [exportQuality, setExportQuality] = useState<0.8 | 0.9 | 1>(0.9);
   const [exportSize, setExportSize] = useState<'original' | '1080'>('original');
@@ -83,8 +96,6 @@ export function EditorToolbar() {
 
     try {
       setIsSaving(true);
-      setNotice(null);
-
       const [originalBlob, imageElement] = await Promise.all([
         blobFromObjectUrl(originalImage.objectUrl),
         loadImage(originalImage.objectUrl)
@@ -118,12 +129,12 @@ export function EditorToolbar() {
         fileName: originalImage.fileName
       });
 
-      setNotice('Projeto salvo com sucesso.');
+      showToast('Projeto salvo com sucesso.', 'success');
     } catch (error) {
       if (error instanceof ProjectLimitError) {
-        setNotice('Limite de 20 projetos atingido. Delete um para salvar outro.');
+        showToast('Limite de 20 projetos atingido. Delete um para salvar outro.', 'error');
       } else {
-        setNotice('Não foi possível salvar o projeto agora.');
+        showToast('Não foi possível salvar o projeto agora.', 'error');
       }
     } finally {
       setIsSaving(false);
@@ -143,7 +154,6 @@ export function EditorToolbar() {
 
     try {
       setIsExporting(true);
-      setNotice(null);
 
       const chosenFormat = options?.format ?? exportFormat;
       const chosenQuality = options?.quality ?? exportQuality;
@@ -165,9 +175,9 @@ export function EditorToolbar() {
       const extension = chosenFormat === 'image/png' ? 'png' : 'jpg';
       const sizeSuffix = chosenSize === '1080' ? '-1080' : '-original';
       triggerDownload(blob, `${baseName}-grain${sizeSuffix}.${extension}`);
-      setNotice('Imagem exportada com sucesso.');
+      showToast('Imagem exportada com sucesso.', 'success');
     } catch {
-      setNotice('Não foi possível exportar a imagem agora.');
+      showToast('Não foi possível exportar a imagem agora.', 'error');
     } finally {
       setIsExporting(false);
     }
@@ -180,7 +190,6 @@ export function EditorToolbar() {
 
     try {
       setIsSharing(true);
-      setNotice(null);
 
       const imageElement = await loadImage(originalImage.objectUrl);
       const blob = await exportPipelineBlob(
@@ -209,13 +218,13 @@ export function EditorToolbar() {
           title: 'Imagem editada no grain',
           files: [file]
         });
-        setNotice('Imagem compartilhada com sucesso.');
+        showToast('Imagem compartilhada com sucesso.', 'success');
       } else {
         triggerDownload(blob, fileName);
-        setNotice('Compartilhamento indisponível neste dispositivo. Arquivo baixado.');
+        showToast('Compartilhamento indisponível neste dispositivo. Arquivo baixado.', 'success');
       }
     } catch {
-      setNotice('Não foi possível compartilhar a imagem agora.');
+      showToast('Não foi possível compartilhar a imagem agora.', 'error');
     } finally {
       setIsSharing(false);
     }
@@ -380,7 +389,11 @@ export function EditorToolbar() {
         </div>
       ) : null}
 
-      {notice ? <p className="pt-2 text-xs text-white/75">{notice}</p> : null}
+      {toast ? (
+        <p className={`pt-2 text-xs ${toast.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+          {toast.message}
+        </p>
+      ) : null}
     </header>
   );
 }
