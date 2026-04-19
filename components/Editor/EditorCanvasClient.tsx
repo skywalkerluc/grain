@@ -313,13 +313,13 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
   const existingCropOperation = useMemo(() => getLatestOperation(pipeline, 'crop')?.payload, [pipeline]);
 
   const fit = useMemo(() => {
-    if (!activeImage) {
+    if (!image) {
       return { x: 0, y: 0, width: stageSize.width, height: stageSize.height };
     }
 
-    const scale = Math.min(stageSize.width / activeImage.width, stageSize.height / activeImage.height);
-    const width = activeImage.width * scale;
-    const height = activeImage.height * scale;
+    const scale = Math.min(stageSize.width / image.width, stageSize.height / image.height);
+    const width = image.width * scale;
+    const height = image.height * scale;
 
     return {
       x: (stageSize.width - width) / 2,
@@ -327,7 +327,7 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
       width,
       height
     };
-  }, [activeImage, stageSize.height, stageSize.width]);
+  }, [image, stageSize.height, stageSize.width]);
 
   useEffect(() => {
     if (mode !== 'crop') {
@@ -474,15 +474,15 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
   };
 
   const applyCrop = () => {
-    if (!image || !cropRect || !activeImage) {
+    if (!image || !cropRect) {
       return;
     }
     if (renderError) {
       return;
     }
 
-    const scaleX = activeImage.width / fit.width;
-    const scaleY = activeImage.height / fit.height;
+    const scaleX = image.width / fit.width;
+    const scaleY = image.height / fit.height;
     const transformedRect = {
       x: (cropRect.x - fit.x) * scaleX,
       y: (cropRect.y - fit.y) * scaleY,
@@ -541,11 +541,11 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
   };
 
   const handleSize = 9;
-  const scaleX = activeImage ? fit.width / activeImage.width : 1;
-  const scaleY = activeImage ? fit.height / activeImage.height : 1;
+  const scaleX = image ? fit.width / image.width : 1;
+  const scaleY = image ? fit.height / image.height : 1;
 
-  const textX = textOperation && activeImage ? fit.x + textOperation.x * scaleX : 0;
-  const textY = textOperation && activeImage ? fit.y + textOperation.y * scaleY : 0;
+  const textX = textOperation && image ? fit.x + textOperation.x * scaleX : 0;
+  const textY = textOperation && image ? fit.y + textOperation.y * scaleY : 0;
   const textFontSize = textOperation ? Math.max(12, textOperation.fontSize * scaleY) : 12;
   const textMetricsImage = useMemo(() => {
     if (!textOperation?.text) {
@@ -694,7 +694,7 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
             />
           ) : null}
 
-          {mode === 'text' && !showOriginalPreview && textOperation?.text && activeImage ? (
+          {mode === 'text' && !showOriginalPreview && textOperation?.text && activeImage && image ? (
             <>
               <KonvaText
                 ref={textNodeRef}
@@ -715,9 +715,9 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
                   const nextY = Math.round((event.target.y() - fit.y) / scaleY);
                   const textWidth = textMetricsImage?.width ?? event.target.width() / scaleX;
                   const textHeight = textMetricsImage?.height ?? event.target.height() / scaleY;
-                  const xBounds = getAnchorXBounds(textOperation.align, textWidth, activeImage.width);
+                  const xBounds = getAnchorXBounds(textOperation.align, textWidth, image.width);
                   const minY = textHeight / 2;
-                  const maxY = activeImage.height - textHeight / 2;
+                  const maxY = image.height - textHeight / 2;
 
                   setPipeline(
                     setTextOverlay(pipeline, {
@@ -748,9 +748,9 @@ export function EditorCanvasClient({ imageUrl }: EditorCanvasProps) {
                     normalizedFont,
                     textOperation.fontFamily
                   );
-                  const xBounds = getAnchorXBounds(textOperation.align, nextMetrics.width, activeImage.width);
+                  const xBounds = getAnchorXBounds(textOperation.align, nextMetrics.width, image.width);
                   const minY = nextMetrics.height / 2;
-                  const maxY = activeImage.height - nextMetrics.height / 2;
+                  const maxY = image.height - nextMetrics.height / 2;
 
                   setPipeline(
                     setTextOverlay(pipeline, {

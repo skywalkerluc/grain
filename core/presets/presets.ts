@@ -353,7 +353,7 @@ export function applyPresetToPipeline(
   const withPreset = upsertOperation(withoutPresetAdjustmentsAndLut, {
     id: crypto.randomUUID(),
     type: 'preset',
-    payload: { presetId: preset.id }
+    payload: { presetId: preset.id, strength: clamp(strengthPercent, 0, 100) }
   });
 
   const withAdjustments = upsertOperation(withPreset, {

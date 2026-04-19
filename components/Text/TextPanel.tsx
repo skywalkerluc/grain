@@ -1,13 +1,17 @@
 'use client';
 
-import { clearTextOverlay, getLatestOperation, setTextOverlay } from '@/core/pipeline';
+import { useRef } from 'react';
+import { clearTextOverlay, getLatestOperation, setTextOverlay, type PipelineState } from '@/core/pipeline';
 import { useEditorStore } from '@/store/editor/editorStore';
 
 const FONT_OPTIONS = ['Avenir Next', 'Georgia', 'Courier New'];
 const ALIGN_OPTIONS: CanvasTextAlign[] = ['left', 'center', 'right'];
+const TEXT_MAX_FONT_SIZE = 180;
 
 export function TextPanel() {
   const pipeline = useEditorStore((state) => state.pipeline);
+  const previewBaseRef = useRef<PipelineState | null>(null);
+  const previewRef = useRef<PipelineState | null>(null);
 
   const textOperation = getLatestOperation(pipeline, 'text')?.payload;
   const hasText = Boolean(textOperation?.text);
@@ -20,7 +24,35 @@ export function TextPanel() {
   const x = textOperation?.x ?? 195;
   const y = textOperation?.y ?? 260;
 
-  const update = (
+  const buildPipeline = (
+    next: Partial<{
+      text: string;
+      x: number;
+      y: number;
+      color: string;
+      fontFamily: string;
+      fontSize: number;
+      align: CanvasTextAlign;
+    }>
+  ) => {
+    const base = previewBaseRef.current ?? useEditorStore.getState().pipeline;
+    return setTextOverlay(base, {
+      text: next?.text ?? text,
+      fontFamily: next?.fontFamily ?? fontFamily,
+      fontSize: next?.fontSize ?? fontSize,
+      color: next?.color ?? color,
+      align: next?.align ?? align,
+      x: next?.x ?? x,
+      y: next?.y ?? y
+    });
+  };
+
+  const startPreview = () => {
+    previewBaseRef.current = useEditorStore.getState().pipeline;
+    previewRef.current = null;
+  };
+
+  const updatePreview = (
     next: Partial<{
       text: string;
       x: number;
@@ -32,17 +64,45 @@ export function TextPanel() {
     }>
   ) => {
     const state = useEditorStore.getState();
-    state.setPipeline(
-      setTextOverlay(state.pipeline, {
-        text: next?.text ?? text,
-        fontFamily: next?.fontFamily ?? fontFamily,
-        fontSize: next?.fontSize ?? fontSize,
-        color: next?.color ?? color,
-        align: next?.align ?? align,
-        x: next?.x ?? x,
-        y: next?.y ?? y
-      })
-    );
+    const preview = buildPipeline(next);
+    previewRef.current = preview;
+    state.setPipelinePreview(preview);
+  };
+
+  const commitPreview = () => {
+    const base = previewBaseRef.current;
+    const preview = previewRef.current;
+    previewBaseRef.current = null;
+    previewRef.current = null;
+    if (!base || !preview) {
+      return;
+    }
+    const state = useEditorStore.getState();
+    state.setPipelinePreview(base);
+    state.setPipeline(preview);
+  };
+
+  const apply = (
+    next: Partial<{
+      text: string;
+      x: number;
+      y: number;
+      color: string;
+      fontFamily: string;
+      fontSize: number;
+      align: CanvasTextAlign;
+    }>
+  ) => {
+    const state = useEditorStore.getState();
+    state.setPipeline(setTextOverlay(state.pipeline, {
+      text: next?.text ?? text,
+      fontFamily: next?.fontFamily ?? fontFamily,
+      fontSize: next?.fontSize ?? fontSize,
+      color: next?.color ?? color,
+      align: next?.align ?? align,
+      x: next?.x ?? x,
+      y: next?.y ?? y
+    }));
   };
 
   return (
@@ -51,7 +111,7 @@ export function TextPanel() {
         <button
           type="button"
           onClick={() =>
-            update({
+            apply({
               text: 'Novo texto',
               x,
               y,
@@ -73,7 +133,9 @@ export function TextPanel() {
           type="text"
           value={text}
           maxLength={64}
-          onChange={(event) => update({ text: event.target.value })}
+          onFocus={startPreview}
+          onChange={(event) => updatePreview({ text: event.target.value })}
+          onBlur={commitPreview}
           className="min-h-11 w-full rounded-lg border border-white/20 bg-black/20 px-3 text-sm"
           placeholder="Digite seu texto"
           disabled={!hasText}
@@ -85,7 +147,7 @@ export function TextPanel() {
           <span className="mb-1 block text-xs uppercase tracking-wide text-white/60">Fonte</span>
           <select
             value={fontFamily}
-            onChange={(event) => update({ fontFamily: event.target.value })}
+            onChange={(event) => apply({ fontFamily: event.target.value })}
             disabled={!hasText}
             className="min-h-11 w-full rounded-lg border border-white/20 bg-black/20 px-2 text-sm"
           >
@@ -102,7 +164,9 @@ export function TextPanel() {
           <input
             type="color"
             value={color}
-            onChange={(event) => update({ color: event.target.value })}
+            onFocus={startPreview}
+            onChange={(event) => updatePreview({ color: event.target.value })}
+            onBlur={commitPreview}
             disabled={!hasText}
             className="h-11 w-full rounded-lg border border-white/20 bg-black/20 p-1"
           />
@@ -117,10 +181,14 @@ export function TextPanel() {
         <input
           type="range"
           min={16}
-          max={96}
+          max={TEXT_MAX_FONT_SIZE}
           step={1}
           value={fontSize}
-          onChange={(event) => update({ fontSize: Number(event.target.value) })}
+          onPointerDown={startPreview}
+          onChange={(event) => updatePreview({ fontSize: Number(event.target.value) })}
+          onPointerUp={commitPreview}
+          onPointerCancel={commitPreview}
+          onBlur={commitPreview}
           disabled={!hasText}
           className="h-11 w-full accent-accent"
         />
@@ -133,7 +201,7 @@ export function TextPanel() {
             <button
               key={option}
               type="button"
-              onClick={() => update({ align: option })}
+              onClick={() => apply({ align: option })}
               disabled={!hasText}
               className={`min-h-11 rounded-lg text-sm capitalize ${
                 align === option ? 'bg-accent text-black' : 'bg-white/10 text-white/80'
@@ -148,6 +216,8 @@ export function TextPanel() {
       <button
         type="button"
         onClick={() => {
+          previewBaseRef.current = null;
+          previewRef.current = null;
           const state = useEditorStore.getState();
           state.setPipeline(clearTextOverlay(state.pipeline));
         }}

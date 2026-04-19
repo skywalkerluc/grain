@@ -37,6 +37,10 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 function isCanvasAlign(value: unknown): value is CanvasTextAlign {
   return value === 'left' || value === 'center' || value === 'right';
 }
@@ -121,7 +125,14 @@ function normalizeOperation(operation: unknown): PipelineOperation | null {
     if (typeof payload.presetId !== 'string' || payload.presetId.length === 0) {
       return null;
     }
-    return { id, type: 'preset', payload: { presetId: payload.presetId } };
+    return {
+      id,
+      type: 'preset',
+      payload: {
+        presetId: payload.presetId,
+        strength: isFiniteNumber(payload.strength) ? clamp(payload.strength, 0, 100) : undefined
+      }
+    };
   }
 
   if (operation.type === 'crop') {

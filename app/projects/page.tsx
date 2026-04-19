@@ -23,6 +23,7 @@ export default function ProjectsPage() {
   const setOriginalImage = useEditorStore((state) => state.setOriginalImage);
   const loadProjectSnapshot = useEditorStore((state) => state.loadProjectSnapshot);
   const setPresetPack = useEditorStore((state) => state.setPresetPack);
+  const clearEditorSession = useEditorStore((state) => state.clearEditorSession);
 
   const [items, setItems] = useState<ProjectCard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +75,9 @@ export default function ProjectsPage() {
     let objectUrl: string | null = null;
     try {
       const pipeline = restoreProjectPipeline(project);
-      const restoredPresetId = getLatestOperation(pipeline, 'preset')?.payload.presetId ?? null;
+      const restoredPreset = getLatestOperation(pipeline, 'preset')?.payload;
+      const restoredPresetId = restoredPreset?.presetId ?? null;
+      const restoredPresetStrength = restoredPreset?.strength ?? 100;
       objectUrl = URL.createObjectURL(project.originalBlob);
 
       setOriginalImage({
@@ -86,7 +89,7 @@ export default function ProjectsPage() {
       });
 
       setPresetPack(restoredPresetId ? inferPresetPackFromId(restoredPresetId) : 'balanced');
-      loadProjectSnapshot(pipeline, restoredPresetId);
+      loadProjectSnapshot(pipeline, restoredPresetId, restoredPresetStrength);
       router.push('/editor');
     } catch {
       if (objectUrl) {
@@ -120,7 +123,10 @@ export default function ProjectsPage() {
         </div>
         <button
           type="button"
-          onClick={() => router.push('/')}
+          onClick={() => {
+            clearEditorSession();
+            router.push('/');
+          }}
           className="min-h-11 rounded-lg bg-white/10 px-3 text-sm"
         >
           Início

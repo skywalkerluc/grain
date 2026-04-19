@@ -21,6 +21,7 @@ export type PipelineOperation =
       type: 'preset';
       payload: {
         presetId: string;
+        strength?: number;
       };
     }
   | {

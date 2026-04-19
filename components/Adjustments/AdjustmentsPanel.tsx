@@ -52,10 +52,29 @@ export function AdjustmentsPanel() {
 
   const entries = useMemo(() => CONTROLS, []);
   const commitPreview = () => {
-    const state = useEditorStore.getState();
-    state.setPipeline(livePipelineRef.current);
+    const base = dragBaseRef.current;
     dragBaseRef.current = null;
+    if (!base) {
+      return;
+    }
+    const state = useEditorStore.getState();
+    state.setPipelinePreview(base);
+    state.setPipeline(livePipelineRef.current);
   };
+
+  useEffect(
+    () => () => {
+      const base = dragBaseRef.current;
+      dragBaseRef.current = null;
+      if (!base) {
+        return;
+      }
+      const state = useEditorStore.getState();
+      state.setPipelinePreview(base);
+      state.setPipeline(livePipelineRef.current);
+    },
+    []
+  );
 
   return (
     <div className="space-y-4">
@@ -99,15 +118,22 @@ export function AdjustmentsPanel() {
               step={item.step}
               value={values[item.key]}
               onPointerDown={() => {
-                dragBaseRef.current = useEditorStore.getState().pipeline;
+                const state = useEditorStore.getState();
+                dragBaseRef.current = state.pipeline;
+                livePipelineRef.current = state.pipeline;
               }}
               onChange={(event) => {
                 const nextValue = Number(event.target.value);
                 setValues((previous) => ({ ...previous, [item.key]: nextValue }));
-                const base = dragBaseRef.current ?? livePipelineRef.current;
+                const state = useEditorStore.getState();
+                if (!dragBaseRef.current) {
+                  dragBaseRef.current = state.pipeline;
+                  livePipelineRef.current = state.pipeline;
+                }
+                const base = dragBaseRef.current;
                 const next = setAdjustment(base, item.key, nextValue);
                 livePipelineRef.current = next;
-                useEditorStore.getState().setPipelinePreview(next);
+                state.setPipelinePreview(next);
               }}
               onPointerUp={() => {
                 commitPreview();

@@ -58,6 +58,7 @@ export function EditorToolbar() {
   const canRedo = useEditorStore((state) => state.canRedo);
   const showOriginalPreview = useEditorStore((state) => state.showOriginalPreview);
   const setShowOriginalPreview = useEditorStore((state) => state.setShowOriginalPreview);
+  const clearEditorSession = useEditorStore((state) => state.clearEditorSession);
 
   const originalImage = useEditorStore((state) => state.originalImage);
   const pipeline = useEditorStore((state) => state.pipeline);
@@ -121,6 +122,7 @@ export function EditorToolbar() {
       const thumbnailBlob = await canvasToBlob(thumbCanvas, 'image/jpeg', 0.84);
 
       await saveProject({
+        projectId: originalImage.id,
         name: `${originalImage.fileName}${activePresetId ? ` · ${activePresetId}` : ''}`,
         originalBlob,
         thumbnailBlob,
@@ -275,6 +277,16 @@ export function EditorToolbar() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            clearEditorSession();
+            router.push('/');
+          }}
+          className="min-h-11 rounded-lg bg-white/10 px-3 text-sm"
+        >
+          Início
+        </button>
         <button
           type="button"
           onClick={saveCurrentProject}

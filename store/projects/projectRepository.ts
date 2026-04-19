@@ -58,6 +58,7 @@ export async function getProjectsCount(): Promise<number> {
 }
 
 export async function saveProject(input: {
+  projectId: string;
   name: string;
   originalBlob: Blob;
   thumbnailBlob: Blob;
@@ -66,16 +67,20 @@ export async function saveProject(input: {
   fileName: string;
 }): Promise<SavedProject> {
   const db = await getDb();
-  const count = await db.count(PROJECTS_STORE);
-  if (count >= PROJECT_LIMIT) {
-    throw new ProjectLimitError();
+  const existing = await db.get(PROJECTS_STORE, input.projectId);
+
+  if (!existing) {
+    const count = await db.count(PROJECTS_STORE);
+    if (count >= PROJECT_LIMIT) {
+      throw new ProjectLimitError();
+    }
   }
 
   const now = new Date().toISOString();
   const record: SavedProject = {
-    id: crypto.randomUUID(),
+    id: input.projectId,
     name: input.name,
-    createdAt: now,
+    createdAt: existing?.createdAt ?? now,
     updatedAt: now,
     originalBlob: input.originalBlob,
     thumbnailBlob: input.thumbnailBlob,

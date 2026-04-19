@@ -1,9 +1,9 @@
 'use client';
 
 import Image from 'next/image';
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import { OVERLAYS, getOverlayById, type OverlayBlendMode } from '@/core/overlays';
-import { clearOverlay, getLatestOperation, setOverlay } from '@/core/pipeline';
+import { clearOverlay, getLatestOperation, setOverlay, type PipelineState } from '@/core/pipeline';
 import { useEditorStore } from '@/store/editor/editorStore';
 
 const BLEND_MODES: OverlayBlendMode[] = [
@@ -21,6 +21,8 @@ const BLEND_MODES: OverlayBlendMode[] = [
 
 export function OverlaysPanel() {
   const pipeline = useEditorStore((state) => state.pipeline);
+  const opacityBaseRef = useRef<PipelineState | null>(null);
+  const opacityPreviewRef = useRef<PipelineState | null>(null);
 
   const overlay = getLatestOperation(pipeline, 'overlay')?.payload;
   const selectedOverlay = useMemo(
@@ -48,19 +50,40 @@ export function OverlaysPanel() {
 
   const updateOpacity = (opacity: number) => {
     const state = useEditorStore.getState();
-    const latestPipeline = state.pipeline;
+    if (!opacityBaseRef.current) {
+      opacityBaseRef.current = state.pipeline;
+    }
+    const latestPipeline = opacityBaseRef.current;
     const latestOverlay = getLatestOperation(latestPipeline, 'overlay')?.payload;
     if (!selectedOverlay || !latestOverlay) {
       return;
     }
 
-    state.setPipeline(
-      setOverlay(latestPipeline, {
-        overlayId: selectedOverlay.id,
-        opacity,
-        blendMode: latestOverlay.blendMode
-      })
-    );
+    const next = setOverlay(latestPipeline, {
+      overlayId: selectedOverlay.id,
+      opacity,
+      blendMode: latestOverlay.blendMode
+    });
+    opacityPreviewRef.current = next;
+    state.setPipelinePreview(next);
+  };
+
+  const startOpacityPreview = () => {
+    opacityBaseRef.current = useEditorStore.getState().pipeline;
+    opacityPreviewRef.current = null;
+  };
+
+  const commitOpacityPreview = () => {
+    const base = opacityBaseRef.current;
+    const preview = opacityPreviewRef.current;
+    opacityBaseRef.current = null;
+    opacityPreviewRef.current = null;
+    if (!base || !preview) {
+      return;
+    }
+    const state = useEditorStore.getState();
+    state.setPipelinePreview(base);
+    state.setPipeline(preview);
   };
 
   const updateBlendMode = (blendMode: OverlayBlendMode) => {
@@ -88,9 +111,13 @@ export function OverlaysPanel() {
           <button
             type="button"
             onClick={() => {
+              if (!overlay) {
+                return;
+              }
               const state = useEditorStore.getState();
               state.setPipeline(clearOverlay(state.pipeline));
             }}
+            disabled={!overlay}
             className="min-h-11 rounded-lg bg-white/10 px-3 text-xs"
           >
             Remover
@@ -128,7 +155,11 @@ export function OverlaysPanel() {
           max={1}
           step={0.01}
           value={overlay?.opacity ?? 0.5}
+          onPointerDown={startOpacityPreview}
           onChange={(event) => updateOpacity(Number(event.target.value))}
+          onPointerUp={commitOpacityPreview}
+          onPointerCancel={commitOpacityPreview}
+          onBlur={commitOpacityPreview}
           disabled={!overlay}
           className="h-11 w-full accent-accent disabled:opacity-40"
         />

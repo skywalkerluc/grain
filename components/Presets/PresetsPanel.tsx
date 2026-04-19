@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useImage from 'use-image';
 import Image from 'next/image';
 import {
@@ -10,6 +10,7 @@ import {
   type PresetPackId,
   renderAllPresetThumbnails
 } from '@/core/presets';
+import { type PipelineState } from '@/core/pipeline';
 import { useEditorStore } from '@/store/editor/editorStore';
 
 type ThumbMap = Record<string, string>;
@@ -50,6 +51,8 @@ export function PresetsPanel() {
 
   const [image] = useImage(originalImage?.objectUrl ?? '', 'anonymous');
   const [thumbs, setThumbs] = useState<ThumbMap>({});
+  const sliderBaseRef = useRef<PipelineState | null>(null);
+  const sliderPreviewRef = useRef<PipelineState | null>(null);
 
   useEffect(() => {
     if (!image) {
@@ -82,9 +85,8 @@ export function PresetsPanel() {
   }, [image, presets]);
 
   const categories = useMemo(() => ['Vintage', 'Clean', 'Dark', 'Film'] as const, []);
-  const expectedThumbs = presets.length + 1;
-  const loadedThumbs = Object.keys(thumbs).length;
-  const thumbsReady = loadedThumbs >= expectedThumbs;
+  const loadedThumbs = presets.filter((item) => Boolean(thumbs[item.id])).length;
+  const thumbsReady = loadedThumbs >= presets.length;
   const selectedPreset = useMemo(() => presets.find((item) => item.id === presetId) ?? null, [presetId, presets]);
   const activeAgedVariant = useMemo(
     () =>
@@ -96,12 +98,27 @@ export function PresetsPanel() {
     [presetStrength]
   );
 
-  const apply = (id: string | null) => {
+  const apply = (id: string | null, packOverride?: PresetPackId) => {
     const state = useEditorStore.getState();
-    const activePresets = getPresetsByPack(state.presetPack);
+    const activePresets = getPresetsByPack(packOverride ?? state.presetPack);
     const preset = id ? activePresets.find((item) => item.id === id) ?? null : null;
     state.setPreset(preset?.id ?? null);
     state.setPipeline(applyPresetToPipeline(state.pipeline, preset, state.presetStrength));
+  };
+
+  const previewPresetStrength = (nextStrength: number) => {
+    setPresetStrength(nextStrength);
+    if (!selectedPreset) {
+      return;
+    }
+    const state = useEditorStore.getState();
+    if (!sliderBaseRef.current) {
+      sliderBaseRef.current = state.pipeline;
+    }
+    const base = sliderBaseRef.current;
+    const next = applyPresetToPipeline(base, selectedPreset, nextStrength);
+    sliderPreviewRef.current = next;
+    state.setPipelinePreview(next);
   };
 
   const applyPresetStrength = (nextStrength: number) => {
@@ -111,6 +128,24 @@ export function PresetsPanel() {
     }
     const state = useEditorStore.getState();
     state.setPipeline(applyPresetToPipeline(state.pipeline, selectedPreset, nextStrength));
+  };
+
+  const startStrengthPreview = () => {
+    sliderBaseRef.current = useEditorStore.getState().pipeline;
+    sliderPreviewRef.current = null;
+  };
+
+  const commitStrengthPreview = () => {
+    const base = sliderBaseRef.current;
+    const preview = sliderPreviewRef.current;
+    sliderBaseRef.current = null;
+    sliderPreviewRef.current = null;
+    if (!base || !preview) {
+      return;
+    }
+    const state = useEditorStore.getState();
+    state.setPipelinePreview(base);
+    state.setPipeline(preview);
   };
 
   return (
@@ -126,7 +161,7 @@ export function PresetsPanel() {
               type="button"
               onClick={() => {
                 setPresetPack(item.id);
-                apply(null);
+                apply(null, item.id);
               }}
               className={`min-h-11 rounded-lg px-3 text-sm ${
                 presetPack === item.id ? 'bg-accent text-black' : 'bg-white/10 text-white/80'
@@ -196,7 +231,11 @@ export function PresetsPanel() {
           max={100}
           step={1}
           value={presetStrength}
-          onChange={(event) => applyPresetStrength(Number(event.target.value))}
+          onPointerDown={startStrengthPreview}
+          onChange={(event) => previewPresetStrength(Number(event.target.value))}
+          onPointerUp={commitStrengthPreview}
+          onPointerCancel={commitStrengthPreview}
+          onBlur={commitStrengthPreview}
           className="h-11 w-full accent-accent"
         />
         <p className="text-[11px] text-white/55">Controla a intensidade geral de cor, contraste, grão e LUT.</p>
@@ -224,7 +263,7 @@ export function PresetsPanel() {
 
       {!thumbsReady ? (
         <p className="text-xs text-white/55">
-          Gerando prévias: {loadedThumbs}/{expectedThumbs}
+          Gerando prévias: {loadedThumbs}/{presets.length}
         </p>
       ) : null}
 

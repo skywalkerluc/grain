@@ -30,7 +30,7 @@ type EditorState = {
   setOriginalImage: (image: OriginalImageRef) => void;
   setPipeline: (next: PipelineState) => void;
   setPipelinePreview: (next: PipelineState) => void;
-  loadProjectSnapshot: (next: PipelineState, presetId: string | null) => void;
+  loadProjectSnapshot: (next: PipelineState, presetId: string | null, presetStrength?: number) => void;
   setMode: (mode: EditorMode) => void;
   setCropAspectRatio: (ratio: CropAspectRatio) => void;
   setPreset: (presetId: string | null) => void;
@@ -40,6 +40,7 @@ type EditorState = {
   undo: () => void;
   redo: () => void;
   reset: () => void;
+  clearEditorSession: () => void;
 };
 
 function pushHistory(history: PipelineState[], current: PipelineState, max: number): PipelineState[] {
@@ -54,6 +55,14 @@ const PRESET_PACK_STORAGE_KEY = 'grain:lastPresetPack';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+function resolvePresetStrength(next: PipelineState, fallback = 100): number {
+  const preset = getLatestOperation(next, 'preset')?.payload;
+  if (!preset) {
+    return fallback;
+  }
+  return clamp(Math.round(preset.strength ?? fallback), 0, 100);
 }
 
 function readPersistedPresetPack(): PresetPackId {
@@ -127,12 +136,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     }
     const history = pushHistory(state.history, state.pipeline, state.maxHistory);
     const nextPresetId = getLatestOperation(next, 'preset')?.payload.presetId ?? null;
+    const nextPresetStrength = resolvePresetStrength(next, state.presetStrength);
 
     set({
       pipeline: clonePipeline(next),
       history,
       future: [],
       presetId: nextPresetId,
+      presetStrength: nextPresetStrength,
       canUndo: history.length > 0,
       canRedo: false
     });
@@ -140,19 +151,21 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setPipelinePreview: (next) => {
     const nextPresetId = getLatestOperation(next, 'preset')?.payload.presetId ?? null;
+    const nextPresetStrength = resolvePresetStrength(next, get().presetStrength);
     set({
       pipeline: clonePipeline(next),
-      presetId: nextPresetId
+      presetId: nextPresetId,
+      presetStrength: nextPresetStrength
     });
   },
 
-  loadProjectSnapshot: (next, presetId) => {
+  loadProjectSnapshot: (next, presetId, presetStrength) => {
     set({
       pipeline: clonePipeline(next),
       history: [],
       future: [],
       presetId,
-      presetStrength: 100,
+      presetStrength: clamp(Math.round(presetStrength ?? resolvePresetStrength(next, 100)), 0, 100),
       canUndo: false,
       canRedo: false
     });
@@ -183,12 +196,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const history = state.history.slice(0, -1);
     const future = [clonePipeline(state.pipeline), ...state.future];
     const previousPresetId = getLatestOperation(previous, 'preset')?.payload.presetId ?? null;
+    const previousPresetStrength = resolvePresetStrength(previous, state.presetStrength);
 
     set({
       pipeline: clonePipeline(previous),
       history,
       future,
       presetId: previousPresetId,
+      presetStrength: previousPresetStrength,
       canUndo: history.length > 0,
       canRedo: future.length > 0
     });
@@ -203,12 +218,14 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const [next, ...remainingFuture] = state.future;
     const history = pushHistory(state.history, state.pipeline, state.maxHistory);
     const nextPresetId = getLatestOperation(next, 'preset')?.payload.presetId ?? null;
+    const nextPresetStrength = resolvePresetStrength(next, state.presetStrength);
 
     set({
       pipeline: clonePipeline(next),
       history,
       future: remainingFuture,
       presetId: nextPresetId,
+      presetStrength: nextPresetStrength,
       canUndo: history.length > 0,
       canRedo: remainingFuture.length > 0
     });
@@ -220,6 +237,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       history: [],
       future: [],
       presetId: null,
+      presetStrength: 100,
+      canUndo: false,
+      canRedo: false,
+      showOriginalPreview: false
+    });
+  },
+
+  clearEditorSession: () => {
+    const current = get().originalImage;
+    if (current?.objectUrl) {
+      URL.revokeObjectURL(current.objectUrl);
+    }
+    set({
+      originalImage: null,
+      pipeline: createPipeline(),
+      history: [],
+      future: [],
+      mode: 'adjustments',
+      cropAspectRatio: 'free',
+      presetId: null,
+      presetPack: readPersistedPresetPack(),
       presetStrength: 100,
       canUndo: false,
       canRedo: false,
