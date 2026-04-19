@@ -223,7 +223,10 @@ export function EditorToolbar() {
         triggerDownload(blob, fileName);
         showToast('Compartilhamento indisponível neste dispositivo. Arquivo baixado.', 'success');
       }
-    } catch {
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return;
+      }
       showToast('Não foi possível compartilhar a imagem agora.', 'error');
     } finally {
       setIsSharing(false);

@@ -34,6 +34,79 @@ describe('pipeline core', () => {
     expect(restored).toEqual(pipeline);
   });
 
+  it('normalizes legacy operation payloads during deserialization', () => {
+    const invalid = JSON.stringify({
+      version: 1,
+      operations: [
+        {
+          id: 'op-1',
+          type: 'text',
+          payload: {
+            text: 'hello',
+            x: 12,
+            y: 20,
+            color: '#fff',
+            fontFamily: 'Arial',
+            fontSize: 32,
+            align: 'start'
+          }
+        },
+        {
+          id: 'op-2',
+          type: 'adjustments',
+          payload: {
+            brightness: 10
+          }
+        },
+        {
+          id: 'op-3',
+          type: 'overlay',
+          payload: {
+            overlayId: 'film-grain',
+            opacity: 0.6,
+            blendMode: 'unknown'
+          }
+        }
+      ]
+    });
+
+    const restored = deserializePipeline(invalid);
+    expect(getLatestOperation(restored, 'text')?.payload.align).toBe('left');
+    expect(getLatestAdjustments(restored).contrast).toBe(0);
+    expect(getLatestOperation(restored, 'overlay')?.payload.blendMode).toBe('normal');
+  });
+
+  it('drops unsupported operations during deserialization', () => {
+    const legacy = JSON.stringify({
+      version: 1,
+      operations: [
+        {
+          id: 'legacy-1',
+          type: 'curve',
+          payload: { points: [] }
+        },
+        {
+          id: 'preset-1',
+          type: 'preset',
+          payload: { presetId: 'vintage-01' }
+        }
+      ]
+    });
+
+    const restored = deserializePipeline(legacy);
+    expect(restored.operations).toHaveLength(1);
+    expect(getLatestOperation(restored, 'preset')?.payload.presetId).toBe('vintage-01');
+  });
+
+  it('rejects invalid pipeline shape during deserialization', () => {
+    const invalid = JSON.stringify({
+      version: 99,
+      operations: []
+    });
+
+    expect(() => deserializePipeline(invalid)).toThrow('Invalid pipeline format');
+  });
+
   it('replaces singleton operation types', () => {
     let pipeline = createPipeline();
 

@@ -322,7 +322,13 @@ export function inferPresetPackFromId(presetId: string): PresetPackId {
 export const PRESETS: PresetDefinition[] = getPresetsByPack(DEFAULT_PRESET_PACK);
 
 export function getPresetById(id: string): PresetDefinition | undefined {
-  return PRESETS.find((item) => item.id === id);
+  for (const presets of Object.values(PRESET_PACKS)) {
+    const found = presets.find((item) => item.id === id);
+    if (found) {
+      return found;
+    }
+  }
+  return undefined;
 }
 
 export function applyPresetToPipeline(

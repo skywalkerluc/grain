@@ -23,7 +23,10 @@ export function loadOverlayImage(overlayId: string): Promise<HTMLImageElement | 
     return cached;
   }
 
-  const promise = createImagePromise(overlay.src);
+  const promise = createImagePromise(overlay.src).catch((error) => {
+    imageCache.delete(overlay.src);
+    throw error;
+  });
   imageCache.set(overlay.src, promise);
   return promise;
 }

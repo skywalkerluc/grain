@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { clonePipeline, createPipeline, type PipelineState } from '@/core/pipeline';
+import { clonePipeline, createPipeline, getLatestOperation, type PipelineState } from '@/core/pipeline';
 import { DEFAULT_PRESET_PACK, type PresetPackId } from '@/core/presets';
 
 export type EditorMode = 'adjustments' | 'crop' | 'text' | 'overlays' | 'presets';
@@ -111,6 +111,7 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       pipeline: createPipeline(),
       history: [],
       future: [],
+      presetId: null,
       canUndo: false,
       canRedo: false,
       showOriginalPreview: false,
@@ -121,20 +122,27 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   setPipeline: (next) => {
     const state = get();
+    if (JSON.stringify(state.pipeline.operations) === JSON.stringify(next.operations)) {
+      return;
+    }
     const history = pushHistory(state.history, state.pipeline, state.maxHistory);
+    const nextPresetId = getLatestOperation(next, 'preset')?.payload.presetId ?? null;
 
     set({
       pipeline: clonePipeline(next),
       history,
       future: [],
+      presetId: nextPresetId,
       canUndo: history.length > 0,
       canRedo: false
     });
   },
 
   setPipelinePreview: (next) => {
+    const nextPresetId = getLatestOperation(next, 'preset')?.payload.presetId ?? null;
     set({
-      pipeline: clonePipeline(next)
+      pipeline: clonePipeline(next),
+      presetId: nextPresetId
     });
   },
 
@@ -174,11 +182,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     const previous = state.history[state.history.length - 1];
     const history = state.history.slice(0, -1);
     const future = [clonePipeline(state.pipeline), ...state.future];
+    const previousPresetId = getLatestOperation(previous, 'preset')?.payload.presetId ?? null;
 
     set({
       pipeline: clonePipeline(previous),
       history,
       future,
+      presetId: previousPresetId,
       canUndo: history.length > 0,
       canRedo: future.length > 0
     });
@@ -192,11 +202,13 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
     const [next, ...remainingFuture] = state.future;
     const history = pushHistory(state.history, state.pipeline, state.maxHistory);
+    const nextPresetId = getLatestOperation(next, 'preset')?.payload.presetId ?? null;
 
     set({
       pipeline: clonePipeline(next),
       history,
       future: remainingFuture,
+      presetId: nextPresetId,
       canUndo: history.length > 0,
       canRedo: remainingFuture.length > 0
     });

@@ -71,21 +71,29 @@ export default function ProjectsPage() {
   const count = useMemo(() => items.length, [items]);
 
   const openProject = (project: SavedProject) => {
-    const objectUrl = URL.createObjectURL(project.originalBlob);
-    const pipeline = restoreProjectPipeline(project);
-    const restoredPresetId = getLatestOperation(pipeline, 'preset')?.payload.presetId ?? null;
+    let objectUrl: string | null = null;
+    try {
+      const pipeline = restoreProjectPipeline(project);
+      const restoredPresetId = getLatestOperation(pipeline, 'preset')?.payload.presetId ?? null;
+      objectUrl = URL.createObjectURL(project.originalBlob);
 
-    setOriginalImage({
-      id: project.id,
-      objectUrl,
-      fileName: project.fileName,
-      mimeType: project.mimeType,
-      size: project.originalBlob.size
-    });
+      setOriginalImage({
+        id: project.id,
+        objectUrl: objectUrl,
+        fileName: project.fileName,
+        mimeType: project.mimeType,
+        size: project.originalBlob.size
+      });
 
-    setPresetPack(restoredPresetId ? inferPresetPackFromId(restoredPresetId) : 'balanced');
-    loadProjectSnapshot(pipeline, restoredPresetId);
-    router.push('/editor');
+      setPresetPack(restoredPresetId ? inferPresetPackFromId(restoredPresetId) : 'balanced');
+      loadProjectSnapshot(pipeline, restoredPresetId);
+      router.push('/editor');
+    } catch {
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+      setError('Este projeto parece corrompido e não pôde ser aberto.');
+    }
   };
 
   const removeProject = async (projectId: string) => {

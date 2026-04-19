@@ -29,14 +29,209 @@ export function serializePipeline(pipeline: PipelineState): string {
   return JSON.stringify(pipeline);
 }
 
-export function deserializePipeline(serialized: string): PipelineState {
-  const parsed = JSON.parse(serialized) as PipelineState;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
-  if (parsed.version !== 1 || !Array.isArray(parsed.operations)) {
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isCanvasAlign(value: unknown): value is CanvasTextAlign {
+  return value === 'left' || value === 'center' || value === 'right';
+}
+
+function normalizeCanvasAlign(value: unknown): CanvasTextAlign {
+  if (value === 'start') {
+    return 'left';
+  }
+  if (value === 'end') {
+    return 'right';
+  }
+  if (isCanvasAlign(value)) {
+    return value;
+  }
+  return 'center';
+}
+
+function isBlendMode(
+  value: unknown
+): value is
+  | 'normal'
+  | 'multiply'
+  | 'screen'
+  | 'overlay'
+  | 'darken'
+  | 'lighten'
+  | 'color-dodge'
+  | 'color-burn'
+  | 'hard-light'
+  | 'soft-light' {
+  return (
+    value === 'normal' ||
+    value === 'multiply' ||
+    value === 'screen' ||
+    value === 'overlay' ||
+    value === 'darken' ||
+    value === 'lighten' ||
+    value === 'color-dodge' ||
+    value === 'color-burn' ||
+    value === 'hard-light' ||
+    value === 'soft-light'
+  );
+}
+
+function toOperationId(operation: Record<string, unknown>): string {
+  if (typeof operation.id === 'string') {
+    return operation.id;
+  }
+  return crypto.randomUUID();
+}
+
+function normalizeOperation(operation: unknown): PipelineOperation | null {
+  if (!isRecord(operation) || typeof operation.type !== 'string') {
+    return null;
+  }
+
+  const payload = operation.payload;
+  if (!isRecord(payload)) {
+    return null;
+  }
+
+  const id = toOperationId(operation);
+
+  if (operation.type === 'adjustments') {
+    return {
+      id,
+      type: 'adjustments',
+      payload: {
+        brightness: isFiniteNumber(payload.brightness) ? payload.brightness : DEFAULT_ADJUSTMENTS.brightness,
+        contrast: isFiniteNumber(payload.contrast) ? payload.contrast : DEFAULT_ADJUSTMENTS.contrast,
+        saturation: isFiniteNumber(payload.saturation) ? payload.saturation : DEFAULT_ADJUSTMENTS.saturation,
+        temperature: isFiniteNumber(payload.temperature) ? payload.temperature : DEFAULT_ADJUSTMENTS.temperature,
+        sharpness: isFiniteNumber(payload.sharpness) ? payload.sharpness : DEFAULT_ADJUSTMENTS.sharpness,
+        vignette: isFiniteNumber(payload.vignette) ? payload.vignette : DEFAULT_ADJUSTMENTS.vignette,
+        fade: isFiniteNumber(payload.fade) ? payload.fade : DEFAULT_ADJUSTMENTS.fade,
+        grain: isFiniteNumber(payload.grain) ? payload.grain : DEFAULT_ADJUSTMENTS.grain
+      }
+    };
+  }
+
+  if (operation.type === 'preset') {
+    if (typeof payload.presetId !== 'string' || payload.presetId.length === 0) {
+      return null;
+    }
+    return { id, type: 'preset', payload: { presetId: payload.presetId } };
+  }
+
+  if (operation.type === 'crop') {
+    if (
+      !isFiniteNumber(payload.x) ||
+      !isFiniteNumber(payload.y) ||
+      !isFiniteNumber(payload.width) ||
+      !isFiniteNumber(payload.height)
+    ) {
+      return null;
+    }
+    return {
+      id,
+      type: 'crop',
+      payload: {
+        x: payload.x,
+        y: payload.y,
+        width: payload.width,
+        height: payload.height
+      }
+    };
+  }
+
+  if (operation.type === 'rotate') {
+    if (!isFiniteNumber(payload.angle)) {
+      return null;
+    }
+    const normalized = (((Math.round(payload.angle) % 360) + 360) % 360) as 0 | 90 | 180 | 270;
+    if (normalized !== 90 && normalized !== 180 && normalized !== 270) {
+      return null;
+    }
+    return { id, type: 'rotate', payload: { angle: normalized } };
+  }
+
+  if (operation.type === 'flip') {
+    return {
+      id,
+      type: 'flip',
+      payload: {
+        horizontal: Boolean(payload.horizontal),
+        vertical: Boolean(payload.vertical)
+      }
+    };
+  }
+
+  if (operation.type === 'lut') {
+    if (typeof payload.lutId !== 'string' || payload.lutId.length === 0) {
+      return null;
+    }
+    return {
+      id,
+      type: 'lut',
+      payload: {
+        lutId: payload.lutId,
+        intensity: isFiniteNumber(payload.intensity) ? payload.intensity : 1
+      }
+    };
+  }
+
+  if (operation.type === 'overlay') {
+    if (typeof payload.overlayId !== 'string' || payload.overlayId.length === 0) {
+      return null;
+    }
+    return {
+      id,
+      type: 'overlay',
+      payload: {
+        overlayId: payload.overlayId,
+        opacity: isFiniteNumber(payload.opacity) ? payload.opacity : 0.5,
+        blendMode: isBlendMode(payload.blendMode) ? payload.blendMode : 'normal'
+      }
+    };
+  }
+
+  if (operation.type === 'text') {
+    if (typeof payload.text !== 'string') {
+      return null;
+    }
+    return {
+      id,
+      type: 'text',
+      payload: {
+        text: payload.text,
+        x: isFiniteNumber(payload.x) ? payload.x : 0,
+        y: isFiniteNumber(payload.y) ? payload.y : 0,
+        color: typeof payload.color === 'string' ? payload.color : '#ffffff',
+        fontFamily: typeof payload.fontFamily === 'string' ? payload.fontFamily : 'Avenir Next',
+        fontSize: isFiniteNumber(payload.fontSize) ? payload.fontSize : 36,
+        align: normalizeCanvasAlign(payload.align)
+      }
+    };
+  }
+
+  return null;
+}
+
+export function deserializePipeline(serialized: string): PipelineState {
+  const parsed = JSON.parse(serialized) as unknown;
+  if (!isRecord(parsed) || parsed.version !== 1 || !Array.isArray(parsed.operations)) {
     throw new Error('Invalid pipeline format');
   }
 
-  return parsed;
+  const operations = parsed.operations
+    .map((operation) => normalizeOperation(operation))
+    .filter((operation): operation is PipelineOperation => operation !== null);
+
+  return {
+    version: 1,
+    operations
+  };
 }
 
 export function upsertOperation(
